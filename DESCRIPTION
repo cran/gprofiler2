@@ -1,0 +1,25 @@
+Package: gprofiler2
+Type: Package
+Title: Interface to the 'g:Profiler' Toolset
+Version: 0.1.0
+Author: Liis Kolberg <liis.kolberg@ut.ee>, Uku Raudvere <uku.raudvere@ut.ee>
+Maintainer: Liis Kolberg <liis.kolberg@ut.ee>
+Description: A toolset for functional enrichment analysis and visualization, gene/protein/SNP identifier conversion and mapping orthologous genes across species via 'g:Profiler' (<https://biit.cs.ut.ee/gprofiler>). 
+    The main tools are: 
+    (1) 'g:GOSt' - functional enrichment analysis and visualization of gene lists; 
+    (2) 'g:Convert' - gene/protein/transcript identifier conversion across various namespaces;
+    (3) 'g:Orth' - orthology search across species;
+    (4) 'g:SNPense' - mapping SNP rs identifiers to chromosome positions, genes and variant effects
+    This package is an R interface corresponding to the 2019 update of 'g:Profiler' and provides access to 'g:Profiler' for versions 'e94_eg41_p11' and higher. See the package 'gProfileR' for accessing older versions from the 'g:Profiler' toolset.  
+BugReports: https://biit.cs.ut.ee/gprofiler/page/contact
+License: GPL (>= 2)
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
+Imports: jsonlite, RCurl, ggplot2, plotly, tidyr, crosstalk, plyr,
+        grDevices, gridExtra, grid, viridisLite, dplyr
+Depends: R (>= 3.5)
+NeedsCompilation: no
+Packaged: 2019-03-01 10:07:09 UTC; Liis
+Repository: CRAN
+Date/Publication: 2019-03-06 19:30:03 UTC
