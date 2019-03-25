@@ -9,7 +9,7 @@ gost(query, organism = "hsapiens", ordered_query = FALSE,
   measure_underrepresentation = FALSE, evcodes = FALSE,
   user_threshold = 0.05, correction_method = c("g_SCS", "bonferroni",
   "fdr", "false_discovery_rate", "gSCS", "analytical"),
-  domain_scope = c("annotated", "known"), custom_bg = NULL,
+  domain_scope = c("annotated", "known", "custom"), custom_bg = NULL,
   numeric_ns = "", sources = NULL)
 }
 \arguments{
@@ -40,7 +40,7 @@ excluded.}
 
 \item{correction_method}{the algorithm used for multiple testing correction, one of "gSCS" (synonyms: "analytical", "g_SCS"), "fdr" (synonyms: "false_discovery_rate"), "bonferroni".}
 
-\item{domain_scope}{how to define statistical domain, one of "annotated", "known".}
+\item{domain_scope}{how to define statistical domain, one of "annotated", "known" or "custom".}
 
 \item{custom_bg}{vector of gene names to use as a statistical background. If given, the domain_scope is set to 'custom'.}
 

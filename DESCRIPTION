@@ -1,7 +1,7 @@
 Package: gprofiler2
 Type: Package
 Title: Interface to the 'g:Profiler' Toolset
-Version: 0.1.0
+Version: 0.1.1
 Author: Liis Kolberg <liis.kolberg@ut.ee>, Uku Raudvere <uku.raudvere@ut.ee>
 Maintainer: Liis Kolberg <liis.kolberg@ut.ee>
 Description: A toolset for functional enrichment analysis and visualization, gene/protein/SNP identifier conversion and mapping orthologous genes across species via 'g:Profiler' (<https://biit.cs.ut.ee/gprofiler>). 
@@ -20,6 +20,6 @@ Imports: jsonlite, RCurl, ggplot2, plotly, tidyr, crosstalk, plyr,
         grDevices, gridExtra, grid, viridisLite, dplyr
 Depends: R (>= 3.5)
 NeedsCompilation: no
-Packaged: 2019-03-01 10:07:09 UTC; Liis
+Packaged: 2019-03-25 15:26:43 UTC; Liis
 Repository: CRAN
-Date/Publication: 2019-03-06 19:30:03 UTC
+Date/Publication: 2019-03-25 19:20:03 UTC
