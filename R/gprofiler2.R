@@ -83,6 +83,9 @@ gost <- function(query,
   if (is.null(query)) {
     stop("Missing query")
   } else if (is.list(query)) {
+    if (is.data.frame(query)){
+      stop("Query can't be a data.frame. Please use a vector or list of identifiers.")
+    }
     # Multiple queries
     qnames = names(query)
     if (is.null(qnames)) {
@@ -322,9 +325,11 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
 
   # If multiquery
   if("p_values" %in% colnames(df)){
+    p_values <- query <- significant <- NULL
     # spread the data frame to correct form
     df$query <- list(names(meta$query_metadata$queries))
-    df <- df %>% tidyr::unnest("p_values", "query", "significant") %>% dplyr::rename("p_value" = "p_values")
+    df <- tidyr::unnest(data = df, p_values, query, significant)
+    df <- dplyr::rename(df, p_value = p_values)
   }
 
   # Set sizescale of circles
