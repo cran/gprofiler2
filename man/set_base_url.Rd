@@ -10,6 +10,6 @@ set_base_url(url)
 \item{url}{the base URL.}
 }
 \description{
-Function to change the g:Profiler base URL. Useful for overriding the default URL (https://biit.cs.ut.ee/gprofiler)
-with the beta (https://biit.cs.ut.ee/gprofiler_beta) or an archived version (available starting from the version e94_eg41_p11).
+Function to change the g:Profiler base URL. Useful for overriding the default URL (http://biit.cs.ut.ee/gprofiler)
+with the beta (http://biit.cs.ut.ee/gprofiler_beta) or an archived version (available starting from the version e94_eg41_p11, e.g. http://biit.cs.ut.ee/gprofiler_archive3/e94_eg41_p11).
 }

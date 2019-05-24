@@ -13,7 +13,7 @@ gost(query, organism = "hsapiens", ordered_query = FALSE,
   numeric_ns = "", sources = NULL)
 }
 \arguments{
-\item{query}{vector that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs; or a (named) list of such vectors.}
+\item{query}{vector, or a (named) list of vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.}
 
 \item{organism}{organism name. Organism names are constructed by concatenating the first letter of the name and the
 family name. Example: human - 'hsapiens', mouse - 'mmusculus'.}
@@ -22,7 +22,8 @@ family name. Example: human - 'hsapiens', mouse - 'mmusculus'.}
 used to get GSEA style p-values.}
 
 \item{multi_query}{in case of multiple gene lists, returns comparison table of these lists.
-If enabled, the result data frame has columns named 'p_values', 'query_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.}
+If enabled, the result data frame has columns named 'p_values', 'query_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.
+To get the results in a long format set 'multi_query' to FALSE and just input query list of multiple gene vectors.}
 
 \item{significant}{whether all or only statistically significant results should
 be returned.}
@@ -33,7 +34,8 @@ be returned.}
 
 \item{evcodes}{include evidence codes to the results. Note
 that this can decrease performance and make the query slower.
-In addition, a column 'intersection' is created that contains the gene id-s that intersect between the query and term.}
+In addition, a column 'intersection' is created that contains the gene id-s that intersect between the query and term.
+This parameter does not work if 'multi_query' is set to TRUE.}
 
 \item{user_threshold}{custom p-value threshold, results with a larger p-value are
 excluded.}
@@ -61,7 +63,7 @@ A named list where 'result' contains data.frame with the enrichment analysis res
 }
 \description{
 Interface to the g:Profiler tool g:GOSt for functional enrichments analysis of gene lists.
-In case the input 'query' is a list, results for multiple queries will be returned in the same data frame with column 'query' indicating the corresponding query name.
+In case the input 'query' is a list of gene vectors, results for multiple queries will be returned in the same data frame with column 'query' indicating the corresponding query name.
 If 'multi_query' is selected, the result is a data frame for comparing multiple input lists,
 just as in the web tool.
 }

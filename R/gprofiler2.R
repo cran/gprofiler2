@@ -21,17 +21,18 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #' Gene list functional enrichment.
 #'
 #' Interface to the g:Profiler tool g:GOSt for functional enrichments analysis of gene lists.
-#' In case the input 'query' is a list, results for multiple queries will be returned in the same data frame with column 'query' indicating the corresponding query name.
+#' In case the input 'query' is a list of gene vectors, results for multiple queries will be returned in the same data frame with column 'query' indicating the corresponding query name.
 #' If 'multi_query' is selected, the result is a data frame for comparing multiple input lists,
 #' just as in the web tool.
 #'
-#' @param query vector that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs; or a (named) list of such vectors.
+#' @param query vector, or a (named) list of vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.
 #' @param organism organism name. Organism names are constructed by concatenating the first letter of the name and the
 #' family name. Example: human - 'hsapiens', mouse - 'mmusculus'.
 #' @param ordered_query in case input gene lists are ranked this option may be
 #'  used to get GSEA style p-values.
 #' @param multi_query in case of multiple gene lists, returns comparison table of these lists.
 #' If enabled, the result data frame has columns named 'p_values', 'query_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.
+#' To get the results in a long format set 'multi_query' to FALSE and just input query list of multiple gene vectors.
 #' @param significant whether all or only statistically significant results should
 #'  be returned.
 #' @param exclude_iea exclude GO electronic annotations (IEA).
@@ -39,6 +40,7 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #' @param evcodes include evidence codes to the results. Note
 #'  that this can decrease performance and make the query slower.
 #'  In addition, a column 'intersection' is created that contains the gene id-s that intersect between the query and term.
+#'  This parameter does not work if 'multi_query' is set to TRUE.
 #' @param user_threshold custom p-value threshold, results with a larger p-value are
 #'  excluded.
 #' @param correction_method the algorithm used for multiple testing correction, one of "gSCS" (synonyms: "analytical", "g_SCS"), "fdr" (synonyms: "false_discovery_rate"), "bonferroni".
@@ -102,6 +104,18 @@ gost <- function(query,
 
   ## evaluate choices
   correction_method <- match.arg(correction_method)
+
+  if (startsWith(organism, "gp__")){
+    message("Detected custom GMT source request")
+    if (!is.null(sources)){
+      message("Sources selection is not available for custom GMT requests. All sources in the GMT upload will be used.")
+      sources <- NULL
+    }
+  }
+
+  if (multi_query & evcodes){
+    message("Evidence codes are not supported with multi_query option and will not be included in the results.\nYou can get evidence codes and intersection genes by setting multi_query = FALSE while keeping the input query as a list of multiple gene vectors.")
+  }
 
   if (!is.null(custom_bg)){
     if (!is.vector(custom_bg)){
@@ -191,7 +205,8 @@ gost <- function(query,
       "source",
       "term_name",
       "effective_domain_size",
-      "source_order"
+      "source_order",
+      "parents"
     )
 
   } else {
@@ -208,25 +223,30 @@ gost <- function(query,
       "source",
       "term_name",
       "effective_domain_size",
-      "source_order"
+      "source_order",
+      "parents"
     )
 
     if (evcodes) {
       col_names <- append(col_names, c("evidence_codes", "intersection"))
       # Add column that lists the intersecting genes separated by comma
       df$intersection <- mapply(
-          function(evcodes, query)
-            paste0(meta$genes_metadata$query[[query]]$ensgs[which(lengths(evcodes) > 0)], collapse = ","),
-          df$intersections,
-          df$query,
-          SIMPLIFY = TRUE
-        )
+        function(evcodes, query){
+          genemap <- meta$genes_metadata$query[[query]]$mapping
+          genes <- meta$genes_metadata$query[[query]]$ensgs[which(lengths(evcodes) > 0)]
+          genes2 <- lapply(genes, function(x) ifelse(x %in% genemap, names(which(genemap == x)) , x))
+          return(paste0(genes2, collapse = ","))
+          },
+        df$intersections,
+        df$query,
+        SIMPLIFY = TRUE
+      )
       df$evidence_codes <- sapply(df$intersections, function(x)
           paste0(sapply(x[which(lengths(x) > 0)], paste0, collapse = " "), collapse = ","), USE.NAMES = FALSE)
     }
 
-    # Order by query and p_value
-    df <- df[with(df, order(query, p_value)), ]
+    # Order by query, source and p_value
+    df <- df[with(df, order(query, source, p_value)), ]
 
   }
 
@@ -300,7 +320,7 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
 
   if (!(all(essential_names %in% colnames(df)))) stop(paste("The following columns are missing from the result:", paste0(setdiff(essential_names, colnames(df)), collapse = ", ")))
 
-  if(!any(grepl("p_value", colnames(df)))) stop("Column 'p_value(s)' is missing from the result")
+  if (!any(grepl("p_value", colnames(df)))) stop("Column 'p_value(s)' is missing from the result")
 
   # nr_of_terms for every source
   widthscale <- unlist(lapply(meta$query_metadata$sources, function(x) meta$result_metadata[[x]][["number_of_terms"]]))
@@ -320,10 +340,17 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
   names(starts) <- names(widthscale)
 
   # Make sure that all the sources have colors
+
+  if (is.null(names(pal))){
+    names(pal) = meta$query_metadata$sources[1:length(pal)]
+  }
+
   sourcediff = setdiff(meta$query_metadata$sources, names(pal))
+  colors = grDevices::colors(distinct = TRUE)[grep('gr(a|e)y|white|snow|khaki|lightyellow', grDevices::colors(distinct = TRUE), invert = TRUE)]
 
   if (length(sourcediff) > 0){
-    pal[sourcediff] <- sample(grDevices::colors(distinct = TRUE), length(sourcediff), replace = TRUE)
+    use_cols = sample(colors, length(sourcediff), replace = FALSE)
+    pal[sourcediff] <- use_cols
   }
 
   # If multiquery
@@ -473,7 +500,7 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL){
   # add highlights
   if (!is.null(highlight_terms)) {
     if (is.data.frame(highlight_terms)){
-      message("The input 'highlight_terms' is a data.frame.\nThe column 'term_id' will be used for detection.")
+      message("The input 'highlight_terms' is a data.frame and therefore the column 'term_id' will be used for detection.")
       if ("term_id" %in% colnames(highlight_terms)){
         highlight_terms <- highlight_terms$term_id
       }
@@ -550,6 +577,161 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL){
   }
 }
 
+#' Create and save a table with the functional enrichment analysis results.
+#'
+#' This function creates a table mainly for the results from gost() function.
+#' However, if the input at least contains columns named 'term_id' and 'p_value' then any enrichment results data frame can be visualised in a table with this function.
+#'
+#' The output table is very similar to the one shown under the Manhattan plot.
+#'
+#' @param gostres named list from gost() function (with names 'result' and 'meta') or a data frame that has columns named "term_id" and "p_value(s)".
+#' @param highlight_terms vector of selected term IDs from the analysis or a (subset) data.frame that has a column called 'term_id'. All data is shown if set to NULL.
+#' @param use_colors if enabled, the p-values are highlighted in the viridis colorscale just as in g:Profiler, otherwise the table has no background colors.
+#' @param show_columns names of additional columns to show besides term_id and p_value. By default the output table shows additional columns named "source", "term_name", "term_size", "intersection_size"
+#' @param filename file name to create on disk and save the annotated plot. Filename extension should be from c("png", "pdf", "jpeg", "tiff", "bmp").
+#' @return The output is a ggplot object.
+#' @author Liis Kolberg <liis.kolberg@@ut.ee>
+#' @examples
+#'  gostres <- gost(c("Klf4", "Pax5", "Sox2", "Nanog"), organism = "mmusculus")
+#'  publish_gosttable(gostres, highlight_terms = c("GO:0001010", "WP:WP1763"))
+#' @export
+publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE, show_columns = c("source", "term_name", "term_size", "intersection_size"), filename = NULL){
+  # gostres is the GOSt response list (contains results and metadata) or a data frame
+
+  term_id <- p_values <- query <- p_value <- NULL
+
+  if (class(gostres) == "list"){
+    if (!("result" %in% names(gostres))) stop("Name 'result' not found from the input")
+    df <- gostres$result
+  } else if (class(gostres) == "data.frame"){
+    df <- gostres
+  } else {
+    stop("The input 'gostres' should be a data frame or a list from the gost() function.")
+  }
+
+  # make sure all the essential column names are there
+  if (!"term_id" %in% colnames(df)) stop("The required column 'term_id' is missing from the input")
+  if (!any(grepl("p_value", colnames(df)))) stop("Column 'p_value(s)' is missing from the input")
+
+  # selected terms
+  if (is.null(highlight_terms)) {
+    # show full table if no terms given
+    highlight_terms = df
+  }
+
+  if (is.data.frame(highlight_terms)){
+    message("The input 'highlight_terms' is a data.frame. The column 'term_id' will be used.")
+    if ("term_id" %in% colnames(highlight_terms)){
+      highlight_terms <- highlight_terms$term_id
+    }
+    else{
+      stop("No column named 'term_id'.")
+    }
+  }
+
+  subdf <- base::subset(df, term_id %in% highlight_terms)
+
+  if (nrow(subdf) == 0){
+    stop("None of the term IDs in the 'highlight_terms' were found from the results.")
+  }
+
+  subdf$id <- match(subdf$term_id, highlight_terms)
+
+  # default column names to show
+  show_columns <- unique(append(show_columns, c("id", "term_id", "p_value")))
+  gp_colnames <- c("id", "source", "term_id", "term_name", "term_size", "query_size", "intersection_size", "p_value")
+
+  colnames <- gp_colnames[which(gp_colnames %in% show_columns)]
+
+  # include non gprofiler columns
+  if (length(setdiff(show_columns, gp_colnames)) > 0){
+    colnames <- append(colnames, setdiff(show_columns, gp_colnames))
+  }
+
+  # If multiquery
+  if ("p_values" %in% colnames(subdf)){
+    if ("meta" %in% names(gostres)){
+      meta <- gostres$meta
+      subdf$query <- list(names(meta$query_metadata$queries))
+    } else {
+      qnames = paste("query", seq(1, length(subdf$p_values[[1]])), sep = "_")
+      subdf$query <- list(names(qnames))
+    }
+    # spread the data frame to correct form
+    subdf <- tidyr::unnest(data = subdf, p_values, query)
+    subdf <- dplyr::rename(subdf, p_value = p_values)
+    subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
+    showdf <- subdf[,stats::na.omit(match(c(colnames, "query"), names(subdf)))]
+    showdf <- tidyr::spread(showdf, query, p_value)
+    idx <- which(!is.na(match(names(showdf), unique(subdf$query))))
+  } else {
+    if ("query" %in% names(subdf) & length(unique(subdf$query)) > 1){
+      subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
+      showdf <- subdf[,stats::na.omit(match(c(colnames, "query"), names(subdf)))]
+      showdf <- tidyr::spread(showdf, query, p_value)
+      idx <- which(!is.na(match(names(showdf), unique(subdf$query))))
+    } else {
+      subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
+      showdf <- subdf[,stats::na.omit(match(colnames, names(subdf)))]
+      idx <- which(!is.na(match(names(showdf), "p_value")))
+    }
+  }
+
+  # Prepare table
+  colours <- matrix("white", nrow(showdf), ncol(showdf))
+  if (use_colors){
+    cols <- sapply(showdf[,idx], function(x) mapViridis(-log10(as.numeric(x))))
+  } else {
+    cols <- sapply(showdf[,idx], function(x) "white")
+  }
+
+  colours[,idx] <- cols
+
+  fontcolours <- matrix("black", nrow(showdf), ncol(showdf))
+  fontcolours[,idx] <- ifelse(use_colors, "white", "black")
+
+  fontfaces <- matrix("plain", nrow(showdf), ncol(showdf))
+  fontfaces[,idx] <- "bold"
+
+  showdf[is.na(showdf)] <- ""
+  th <- gridExtra::ttheme_default(base_size = 10,
+                                  padding = grid::unit(c(4, 4), "mm"),
+                                  core=list(
+                                    padding.h = grid::unit(c(15,15), "mm"),
+                                    padding.v = grid::unit(c(15,15), "mm"),
+                                    bg_params = list(fill = colours, col="black", lwd = 0.5),
+                                    fg_params=list(hjust = 0, x = 0.01, col=fontcolours, fontface=fontfaces)),
+                                  colhead=list(bg_params = list(fill = "gray99", lwd = 0.5, col = "black"),
+                                               fg_params=list(col="gray39", fontface="bold")),
+                                  rowhead=list(fg_params=list(col="black", fontface="bold")))
+
+  tb <- gridExtra::tableGrob(showdf, theme = th, rows = NULL)
+  h <- grid::unit.c(sum(tb$heights))
+  w <- grid::unit.c(sum(tb$widths))
+  tg <- gridExtra::grid.arrange(tb, ncol = 1, widths = w, heights = h, newpage = TRUE, bottom = grid::textGrob("g:Profiler (biit.cs.ut.ee/gprofiler)", x = 0.95, hjust = 1, gp = grid::gpar(fontsize=10, font=8, col = "cornflowerblue")))
+
+  p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
+
+  if (is.null(filename)){
+    return(p)
+  } else{
+    imgtype <- strsplit(basename(filename), split="\\.")[[1]][-1]
+
+    if (length(imgtype) == 0) {
+      filename = paste0(filename, ".pdf")
+    }
+
+    if (tolower(imgtype) %in% c("png", "pdf", "jpeg", "tiff", "bmp")){
+      width = grid::convertWidth(sum(tg$widths), "in", TRUE) + 0.2
+      height = grid::convertHeight(sum(tg$heights), "in", TRUE) + 0.2
+      ggplot2::ggsave(filename = filename, plot = p, height = height, width = width)
+      message("The image is saved to ", filename)
+      return(p)
+    } else {
+      stop("The given file format is not supported.\nPlease use one of the following extensions: .png, .pdf, .jpeg, .tiff, .bmp")
+    }
+  }
+}
 
 #' Gene ID conversion.
 #'
@@ -947,8 +1129,8 @@ get_base_url = function() {
 
 #' Set the base URL.
 #'
-#' Function to change the g:Profiler base URL. Useful for overriding the default URL (https://biit.cs.ut.ee/gprofiler)
-#' with the beta (https://biit.cs.ut.ee/gprofiler_beta) or an archived version (available starting from the version e94_eg41_p11).
+#' Function to change the g:Profiler base URL. Useful for overriding the default URL (http://biit.cs.ut.ee/gprofiler)
+#' with the beta (http://biit.cs.ut.ee/gprofiler_beta) or an archived version (available starting from the version e94_eg41_p11, e.g. http://biit.cs.ut.ee/gprofiler_archive3/e94_eg41_p11).
 #'
 #' @param url the base URL.
 #' @export
@@ -956,13 +1138,10 @@ get_base_url = function() {
 set_base_url = function(url) {
   url = as.character(url)
   schema = substr(url, 1, 4)
-  suffix = substr(url, nchar(url), nchar(url))
 
   if (schema != "http")
     stop("The URL must be absolute and use the HTTP(S) schema")
-  if (suffix != "/")
-    url = paste(url, "/", sep="")
 
-  assign("base_url", url, envir=gp_globals)
+  assign("base_url", url, envir = gp_globals)
 }
 
