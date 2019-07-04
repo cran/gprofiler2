@@ -5,7 +5,7 @@
 \title{Gene list functional enrichment.}
 \usage{
 gost(query, organism = "hsapiens", ordered_query = FALSE,
-  multi_query = FALSE, significant = TRUE, exclude_iea = TRUE,
+  multi_query = FALSE, significant = TRUE, exclude_iea = FALSE,
   measure_underrepresentation = FALSE, evcodes = FALSE,
   user_threshold = 0.05, correction_method = c("g_SCS", "bonferroni",
   "fdr", "false_discovery_rate", "gSCS", "analytical"),

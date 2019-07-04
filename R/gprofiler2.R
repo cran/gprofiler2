@@ -67,7 +67,7 @@ gost <- function(query,
                       ordered_query = FALSE,
                       multi_query = FALSE,
                       significant = TRUE,
-                      exclude_iea = TRUE,
+                      exclude_iea = FALSE,
                       measure_underrepresentation = FALSE,
                       evcodes = FALSE,
                       user_threshold = 0.05,
@@ -139,7 +139,7 @@ gost <- function(query,
       no_evidences = jsonlite::unbox(!evcodes),
       combined = jsonlite::unbox(multi_query),
       measure_underrepresentation = jsonlite::unbox(measure_underrepresentation),
-      no_iea = jsonlite::unbox(!exclude_iea),
+      no_iea = jsonlite::unbox(exclude_iea),
       domain_scope = jsonlite::unbox(domain_scope),
       numeric_ns = jsonlite::unbox(numeric_ns),
       significance_threshold_method = jsonlite::unbox(correction_method),
@@ -549,10 +549,11 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL){
                                                  fg_params=list(col="gray39", fontface="bold")),
                                     rowhead=list(fg_params=list(col="black", fontface="bold")))
     tb <- gridExtra::tableGrob(showdf, theme = th, rows = NULL)
-    h <- grid::unit.c(grid::unit(1,"null"), sum(tb$heights) + grid::unit(3, "mm"))
-    p <- gridExtra::grid.arrange(p, tb, ncol = 1, heights = h, newpage = TRUE, bottom = grid::textGrob("g:Profiler (biit.cs.ut.ee/gprofiler)", x = 0.95, hjust = 1, gp = grid::gpar(fontsize=10, font=8, col = "cornflowerblue")))
+    h <- grid::unit.c(grid::unit(1, "null"), sum(tb$heights) + grid::unit(3, "mm"))
+    w <- grid::unit.c(sum(tb$widths))
+    tg <- gridExtra::grid.arrange(p, tb, ncol = 1, heights = h, widths = w, newpage = TRUE, bottom = grid::textGrob("g:Profiler (biit.cs.ut.ee/gprofiler)", x = 0.95, hjust = 1, gp = grid::gpar(fontsize=10, font=8, col = "cornflowerblue")))
     # convert grob to ggplot object
-    p <- ggplot2::ggplot() + ggplot2::annotation_custom(p) + ggplot2::geom_blank() + ggplot2::theme_void()
+    p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
   }
 
   if (is.null(filename)){
@@ -566,9 +567,13 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL){
     }
 
     if (tolower(imgtype) %in% c("png", "pdf", "jpeg", "tiff", "bmp")){
-      width = max(grDevices::dev.size()[1], 8)
-      height = max(grDevices::dev.size()[2], 6)
-      ggplot2::ggsave(filename = filename, plot = p, width = width, height = height)
+      #width = max(grDevices::dev.size()[1], 8)
+      #height = max(grDevices::dev.size()[2], 6)
+      width = grid::convertWidth(sum(tg$widths), "in", TRUE) + 0.1
+      height = grid::convertHeight(sum(tg$heights), "in", TRUE) + 10.2
+      print(height)
+      print(width)
+      ggplot2::ggsave(filename = filename, plot = p, width = width, height = height, limitsize = F)
       message("The image is saved to ", filename)
       return(p)
     } else {
