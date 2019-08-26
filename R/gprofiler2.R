@@ -738,6 +738,108 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
   }
 }
 
+#' Upload custom annotations for functional enrichment analysis in g:GOSt.
+#'
+#' Upload your own annotation data using files in the Gene Matrix Transposed file format (GMT) for functional enrichment analysis in g:GOSt.
+#' The accepted file is either a single annotations file (with the extension .gmt) or a compressed directory of multiple annotation GMT files (with the extension .zip).
+#' The GMT format is a tab-separated list of gene annotation sets where every line represents a separate gene set/functional term. The first column defines the function ID, second defines a short name/description of the function and the following columns
+#' are the list of genes related to the specific function in that row.
+#'
+#' The uploaded filename is used to define 'source' name in the g:GOSt results.
+#'
+#' @param gmtfile the filepath of the GMT file to be uploaded. The file extension should be .gmt or .zip in case of multiple GMT files.
+#' If the filepath does not contain an absolute path, the filename is relative to the current working directory.
+#' @return A string that denotes the ID of the uploaded custom annotations in the g:Profiler database.
+#' After the GMT file upload this unique ID can be used as a value for the argument 'organism' in the \code{gost()} function to perform
+#' functional enrichment analysis based on these custom data.
+#'
+#' No need to repeatedly upload the same custom GMT file(s) every time you want to do the enrichment analysis.
+#' The custom ID can also be used in the web tool as a token under the Custom GMT options.
+#' @author Liis Kolberg <liis.kolberg@@ut.ee>
+#' @examples
+#' \dontrun{custom_id <- upload_GMT_file("path/to/file.gmt")}
+#' @export
+upload_GMT_file <- function(gmtfile){
+  # check if file exists
+  if (!file.exists(gmtfile)){
+    stop(paste0("Can't find the input file ", gmtfile, "\nPlease check the filename and absolute path and try again."))
+  }
+  if (endsWith(gmtfile, ".gmt")){
+    # GMT file
+    gmturl = paste0(file.path(gp_globals$base_url, "api", "gost", "custom"), "/")
+    gmtdata <- paste(readLines(gmtfile, skipNul = TRUE), collapse = "\n")
+
+    body <- jsonlite::toJSON((
+      list(
+        gmt = gmtdata,
+        name = basename(gmtfile)
+      )
+    ),
+    auto_unbox = TRUE,
+    null = "null")
+
+    # Headers
+    headers <-
+      list("Accept" = "application/json",
+           "Content-Type" = "application/json",
+           "charset" = "UTF-8")
+
+    oldw <- getOption("warn")
+    options(warn = -1)
+    h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
+    h2 = RCurl::getCurlHandle() # Get info about the request
+
+    # Request
+    r = RCurl::curlPerform(
+      url = gmturl,
+      postfields = body,
+      httpheader = headers,
+      customrequest = 'POST',
+      verbose = FALSE,
+      ssl.verifypeer = FALSE,
+      writefunction = h1$update,
+      curl = h2,
+      .opts = gp_globals$rcurl_opts
+    )
+    options(warn = 0)
+    rescode = RCurl::getCurlInfo(h2)[["response.code"]]
+
+    if (rescode != 200) {
+      stop("Bad request, response code ", rescode)
+    }
+
+    txt <- h1$value()
+    res <- jsonlite::fromJSON(txt)
+  }
+  else if (endsWith(gmtfile, ".zip")){
+    # zipped GMT files
+
+    gmturl = paste0(file.path(gp_globals$base_url, "api", "gost", "custom", "zip"), "/")
+    options(warn = -1)
+    h2 = RCurl::getCurlHandle() # Get info about the request
+    r = RCurl::postForm(
+      uri = gmturl,
+      zipfile = RCurl::fileUpload(filename = gmtfile, contentType="multipart/form-data"),
+      curl = h2
+    )
+    options(warn = 0)
+    rescode = RCurl::getCurlInfo(h2)[["response.code"]]
+
+    if (rescode != 200) {
+      stop("Bad request, response code ", rescode)
+    }
+    res <- jsonlite::fromJSON(r)
+  }
+  else {
+    stop("Custom GMT file should have extension .gmt or .zip")
+  }
+  custom_id <- res$organism
+  message(paste("Your custom annotations ID is", custom_id), "\nYou can use this ID as an 'organism' name in all the related enrichment tests against this custom source.")
+  message(paste0("Just use: gost(my_genes, organism = '", custom_id, "')"))
+
+  return(custom_id)
+}
+
 #' Gene ID conversion.
 #'
 #' Interface to the g:Profiler tool g:Convert that uses the information in Ensembl databases to handle hundreds of types of identifiers for genes, proteins, transcripts, microarray probesets, etc, for many species,
