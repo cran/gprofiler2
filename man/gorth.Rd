@@ -31,7 +31,7 @@ The output is a data.frame which is a table closely corresponding to the
 web interface output.
 }
 \description{
-Interface to the g:Profiler tool g:Orth that, given a target organism, retrieves the genes of the target organism that are similar in sequence to the source organism genes in the input.
+Interface to the g:Profiler tool g:Orth (\url{https://biit.cs.ut.ee/gprofiler/orth}) that, given a target organism, retrieves the genes of the target organism that are similar in sequence to the source organism genes in the input.
 }
 \examples{
 gorth(c("Klf4","Pax5","Sox2","Nanog"), source_organism="mmusculus", target_organism="hsapiens")

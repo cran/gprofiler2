@@ -4,7 +4,8 @@
 \alias{publish_gostplot}
 \title{Create and save an annotated Manhattan plot of enrichment results.}
 \usage{
-publish_gostplot(p, highlight_terms = NULL, filename = NULL)
+publish_gostplot(p, highlight_terms = NULL, filename = NULL,
+  width = NA, height = NA)
 }
 \arguments{
 \item{p}{ggplot object from gostplot(gostres, interactive = FALSE) function}
@@ -12,6 +13,10 @@ publish_gostplot(p, highlight_terms = NULL, filename = NULL)
 \item{highlight_terms}{vector of selected term IDs from the analysis or a (subset) data.frame that has a column called 'term_id'. No annotation is added if set to NULL.}
 
 \item{filename}{file name to create on disk and save the annotated plot. Filename extension should be from c("png", "pdf", "jpeg", "tiff", "bmp").}
+
+\item{width}{plot width in inches. If not supplied, the size of current graphics device is used.}
+
+\item{height}{plot height in inches. If not supplied, the size of current graphics device is used.}
 }
 \value{
 The output is a ggplot object.

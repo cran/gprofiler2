@@ -17,7 +17,7 @@ The output is a data.frame which is a table closely corresponding to the
 web interface output. Columns 'ensgs' and 'gene_names' can contain list of multiple values.
 }
 \description{
-Interface to the g:Profiler tool g:SNPense that maps SNP rs identifiers to chromosome positions, genes and variant effects.
+Interface to the g:Profiler tool g:SNPense (\url{https://biit.cs.ut.ee/gprofiler/snpense}) that maps SNP rs identifiers to chromosome positions, genes and variant effects.
 Available only for human SNPs.
 }
 \examples{

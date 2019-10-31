@@ -20,7 +20,7 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 
 #' Gene list functional enrichment.
 #'
-#' Interface to the g:Profiler tool g:GOSt for functional enrichments analysis of gene lists.
+#' Interface to the g:Profiler tool g:GOSt (\url{https://biit.cs.ut.ee/gprofiler/gost}) for functional enrichments analysis of gene lists.
 #' In case the input 'query' is a list of gene vectors, results for multiple queries will be returned in the same data frame with column 'query' indicating the corresponding query name.
 #' If 'multi_query' is selected, the result is a data frame for comparing multiple input lists,
 #' just as in the web tool.
@@ -57,6 +57,8 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #'  When requesting a 'multi_query', either TRUE or FALSE, the columns of the resulting data frame differ.
 #'  If 'evcodes' is set, the return value includes columns 'evidence_codes' and 'intersection'.
 #'  The latter conveys info about the intersecting genes between the corresponding query and term.
+#'
+#'  The result fields are further described in \url{https://biit.cs.ut.ee/gprofiler_beta/page/apis#gost_query_results}
 #' @author  Liis Kolberg <liis.kolberg@@ut.ee>, Uku Raudvere <uku.raudvere@@ut.ee>
 #' @examples
 #' gostres <- gost(c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"))
@@ -481,6 +483,8 @@ mapViridis <- function(values, domain_min = 0, domain_max = 50, n = 256){
 #' @param p ggplot object from gostplot(gostres, interactive = FALSE) function
 #' @param highlight_terms vector of selected term IDs from the analysis or a (subset) data.frame that has a column called 'term_id'. No annotation is added if set to NULL.
 #' @param filename file name to create on disk and save the annotated plot. Filename extension should be from c("png", "pdf", "jpeg", "tiff", "bmp").
+#' @param width plot width in inches. If not supplied, the size of current graphics device is used.
+#' @param height plot height in inches. If not supplied, the size of current graphics device is used.
 #' @return The output is a ggplot object.
 #' @author Liis Kolberg <liis.kolberg@@ut.ee>
 #' @examples
@@ -488,7 +492,7 @@ mapViridis <- function(values, domain_min = 0, domain_max = 50, n = 256){
 #'  p <- gostplot(gostres, interactive = FALSE)
 #'  publish_gostplot(p, highlight_terms = c("GO:0001010", "WP:WP1763"))
 #' @export
-publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL){
+publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width = NA, height = NA){
   # check that it is a static plot
   if(!("ggplot" %in% class(p))){
     warning("Highlighting terms in a Manhattan plot is available for a ggplot object only.\nPlease set 'interactive = F' in the gostplot() function and try again.")
@@ -550,11 +554,14 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL){
                                     rowhead=list(fg_params=list(col="black", fontface="bold")))
     tb <- gridExtra::tableGrob(showdf, theme = th, rows = NULL)
     h <- grid::unit.c(grid::unit(1, "null"), sum(tb$heights) + grid::unit(3, "mm"))
-    w <- grid::unit.c(sum(tb$widths))
+    #w <- grid::unit.c(sum(tb$widths))
+    w <- grid::unit.c(grid::unit(1, "null"))
     tg <- gridExtra::grid.arrange(p, tb, ncol = 1, heights = h, widths = w, newpage = TRUE, bottom = grid::textGrob("g:Profiler (biit.cs.ut.ee/gprofiler)", x = 0.95, hjust = 1, gp = grid::gpar(fontsize=10, font=8, col = "cornflowerblue")))
     # convert grob to ggplot object
     p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
-  }
+    #width = grid::convertWidth(sum(tg$widths), "in", TRUE) + 0.1
+    #height = grid::convertHeight(sum(tg$heights), "in", TRUE) + 10.2
+   }
 
   if (is.null(filename)){
     return(p)
@@ -567,12 +574,12 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL){
     }
 
     if (tolower(imgtype) %in% c("png", "pdf", "jpeg", "tiff", "bmp")){
-      #width = max(grDevices::dev.size()[1], 8)
-      #height = max(grDevices::dev.size()[2], 6)
-      width = grid::convertWidth(sum(tg$widths), "in", TRUE) + 0.1
-      height = grid::convertHeight(sum(tg$heights), "in", TRUE) + 10.2
-      print(height)
-      print(width)
+      if (is.na(width)){
+        width = max(grDevices::dev.size()[1], 8)
+      }
+      if (is.na(height)){
+        height = max(grDevices::dev.size()[2], 6)
+      }
       ggplot2::ggsave(filename = filename, plot = p, width = width, height = height, limitsize = F)
       message("The image is saved to ", filename)
       return(p)
@@ -840,9 +847,61 @@ upload_GMT_file <- function(gmtfile){
   return(custom_id)
 }
 
+
+#' Generate a random gene list.
+#'
+#' This function returns a vector of randomly selected genes from the selected organism.
+#'
+#' @param organism organism name. Organism names are constructed by concatenating the first letter of the name and the
+#' family name. Example: human - 'hsapiens', mouse - 'mmusculus'.
+#' @return a character vector containing randomly selected gene IDs from the selected organism.
+#' @author Liis Kolberg <liis.kolberg@@ut.ee>
+#' @examples
+#' random_genes <- random_query()
+#' @export
+random_query <- function(organism = "hsapiens"){
+  url = paste0(file.path(gp_globals$base_url, "api", "gost", "random_query"), "/")
+  body <- jsonlite::toJSON((
+    list(organism = jsonlite::unbox(organism))),
+    auto_unbox = FALSE,
+    null = "null")
+  # Headers
+
+  headers <- list("Accept" = "application/json",
+                  "Content-Type" = "application/json",
+                  "charset" = "UTF-8")
+
+  oldw <- getOption("warn")
+  options(warn = -1)
+  h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
+  h2 = RCurl::getCurlHandle() # Get info about the request
+
+  # Request
+  r = RCurl::curlPerform(
+    url = url,
+    postfields = body,
+    httpheader = headers,
+    customrequest = 'POST',
+    verbose = FALSE,
+    ssl.verifypeer = FALSE,
+    writefunction = h1$update,
+    curl = h2,
+    .opts = gp_globals$rcurl_opts
+  )
+  options(warn = 0)
+  rescode = RCurl::getCurlInfo(h2)[["response.code"]]
+  txt <- h1$value()
+
+  if (rescode != 200) {
+    stop("Bad request, response code ", rescode)
+  }
+  res <- jsonlite::fromJSON(txt)
+  return(res)
+}
+
 #' Gene ID conversion.
 #'
-#' Interface to the g:Profiler tool g:Convert that uses the information in Ensembl databases to handle hundreds of types of identifiers for genes, proteins, transcripts, microarray probesets, etc, for many species,
+#' Interface to the g:Profiler tool g:Convert (\url{https://biit.cs.ut.ee/gprofiler/convert}) that uses the information in Ensembl databases to handle hundreds of types of identifiers for genes, proteins, transcripts, microarray probesets, etc, for many species,
 #' experimental platforms and biological databases.
 #' The input is flexible: it accepts a mixed list of IDs and recognises their types automatically.
 #' It can also serve as a service to get all genes belonging to a particular functional category.
@@ -958,7 +1017,7 @@ gconvert = function(
 
 #' Orthology search.
 #'
-#' Interface to the g:Profiler tool g:Orth that, given a target organism, retrieves the genes of the target organism that are similar in sequence to the source organism genes in the input.
+#' Interface to the g:Profiler tool g:Orth (\url{https://biit.cs.ut.ee/gprofiler/orth}) that, given a target organism, retrieves the genes of the target organism that are similar in sequence to the source organism genes in the input.
 #'
 #' @param query vector of gene IDs to be translated.
 #' @param source_organism name of the source organism. Organism names are constructed by concatenating
@@ -1074,7 +1133,7 @@ gorth <- function(
 
 #' Convert SNP rs numbers to genes.
 #'
-#' Interface to the g:Profiler tool g:SNPense that maps SNP rs identifiers to chromosome positions, genes and variant effects.
+#' Interface to the g:Profiler tool g:SNPense (\url{https://biit.cs.ut.ee/gprofiler/snpense}) that maps SNP rs identifiers to chromosome positions, genes and variant effects.
 #' Available only for human SNPs.
 #'
 #' @param query vector of SNP IDs to be translated (should start with prefix 'rs').

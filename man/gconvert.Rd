@@ -28,7 +28,7 @@ The output is a data.frame which is a table closely corresponding to the
 web interface output.
 }
 \description{
-Interface to the g:Profiler tool g:Convert that uses the information in Ensembl databases to handle hundreds of types of identifiers for genes, proteins, transcripts, microarray probesets, etc, for many species,
+Interface to the g:Profiler tool g:Convert (\url{https://biit.cs.ut.ee/gprofiler/convert}) that uses the information in Ensembl databases to handle hundreds of types of identifiers for genes, proteins, transcripts, microarray probesets, etc, for many species,
 experimental platforms and biological databases.
 The input is flexible: it accepts a mixed list of IDs and recognises their types automatically.
 It can also serve as a service to get all genes belonging to a particular functional category.

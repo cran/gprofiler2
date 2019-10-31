@@ -60,9 +60,11 @@ A named list where 'result' contains data.frame with the enrichment analysis res
  When requesting a 'multi_query', either TRUE or FALSE, the columns of the resulting data frame differ.
  If 'evcodes' is set, the return value includes columns 'evidence_codes' and 'intersection'.
  The latter conveys info about the intersecting genes between the corresponding query and term.
+
+ The result fields are further described in \url{https://biit.cs.ut.ee/gprofiler_beta/page/apis#gost_query_results}
 }
 \description{
-Interface to the g:Profiler tool g:GOSt for functional enrichments analysis of gene lists.
+Interface to the g:Profiler tool g:GOSt (\url{https://biit.cs.ut.ee/gprofiler/gost}) for functional enrichments analysis of gene lists.
 In case the input 'query' is a list of gene vectors, results for multiple queries will be returned in the same data frame with column 'query' indicating the corresponding query name.
 If 'multi_query' is selected, the result is a data frame for comparing multiple input lists,
 just as in the web tool.
