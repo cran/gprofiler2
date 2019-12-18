@@ -9,8 +9,9 @@ gost(query, organism = "hsapiens", ordered_query = FALSE,
   measure_underrepresentation = FALSE, evcodes = FALSE,
   user_threshold = 0.05, correction_method = c("g_SCS", "bonferroni",
   "fdr", "false_discovery_rate", "gSCS", "analytical"),
-  domain_scope = c("annotated", "known", "custom"), custom_bg = NULL,
-  numeric_ns = "", sources = NULL)
+  domain_scope = c("annotated", "known", "custom", "custom_annotated"),
+  custom_bg = NULL, numeric_ns = "", sources = NULL,
+  as_short_link = FALSE)
 }
 \arguments{
 \item{query}{vector, or a (named) list of vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.}
@@ -37,14 +38,13 @@ that this can decrease performance and make the query slower.
 In addition, a column 'intersection' is created that contains the gene id-s that intersect between the query and term.
 This parameter does not work if 'multi_query' is set to TRUE.}
 
-\item{user_threshold}{custom p-value threshold, results with a larger p-value are
-excluded.}
+\item{user_threshold}{custom p-value threshold for significance, results with smaller p-value are tagged as significant. We don't recommend to set it higher than 0.05.}
 
 \item{correction_method}{the algorithm used for multiple testing correction, one of "gSCS" (synonyms: "analytical", "g_SCS"), "fdr" (synonyms: "false_discovery_rate"), "bonferroni".}
 
-\item{domain_scope}{how to define statistical domain, one of "annotated", "known" or "custom".}
+\item{domain_scope}{how to define statistical domain, one of "annotated", "known", "custom" or "custom_annotated".}
 
-\item{custom_bg}{vector of gene names to use as a statistical background. If given, the domain_scope is set to 'custom'.}
+\item{custom_bg}{vector of gene names to use as a statistical background. If given, the domain_scope is by default set to "custom", if domain_scope is set to "custom_annotated", then this is used instead.}
 
 \item{numeric_ns}{namespace to use for fully numeric IDs.}
 
@@ -52,6 +52,8 @@ excluded.}
 GO (GO:BP, GO:MF, GO:CC to select a particular GO branch), KEGG, REAC, TF,
 MIRNA, CORUM, HP, HPA, WP. Please see the g:GOSt web tool for the comprehensive
 list and details on incorporated data sources.}
+
+\item{as_short_link}{indicator to return results as short-link to the g:Profiler web tool. If set to TRUE, then the function returns the results URL as a character string instead of the data.frame.}
 }
 \value{
 A named list where 'result' contains data.frame with the enrichment analysis results and 'meta' contains metadata needed for Manhattan plot. If the input
@@ -62,6 +64,8 @@ A named list where 'result' contains data.frame with the enrichment analysis res
  The latter conveys info about the intersecting genes between the corresponding query and term.
 
  The result fields are further described in \url{https://biit.cs.ut.ee/gprofiler_beta/page/apis#gost_query_results}
+
+ If 'as_short_link' is set to TRUE, then the result is a character short-link to see and share corresponding results via the g:Profiler web tool.
 }
 \description{
 Interface to the g:Profiler tool g:GOSt (\url{https://biit.cs.ut.ee/gprofiler/gost}) for functional enrichments analysis of gene lists.

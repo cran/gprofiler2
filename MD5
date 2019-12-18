@@ -1,12 +1,16 @@
-db821e2e247f1488185422db098af1d0 *DESCRIPTION
+ddf65d58b05accf674338c1302b3327c *DESCRIPTION
 ad8ce4c27dc026bb19a73555a0c05e93 *NAMESPACE
-ab728eb1325eb759942d02cee87db731 *R/gprofiler2.R
+54dd566267e2c0143ba7a259da50d99d *R/gprofiler2.R
+fb086a61f675e8c0aacc9b6bfb6de1e8 *build/vignette.rds
+cb7ec3cccd988b4b1419d33a290ead1f *inst/doc/gprofiler2.R
+2823628754f543fc89ee07871a1ffe4f *inst/doc/gprofiler2.Rmd
+95ced63a8b749ffcf97598e79ec6cd25 *inst/doc/gprofiler2.html
 28ff0f41430e6a74ae1d47cec687c9b6 *man/gconvert.Rd
 13e9088b5e69b83ca7a0de6bfcfea9d6 *man/get_base_url.Rd
 e3d6e336ec7726d188f918db0fe69158 *man/get_tls_version.Rd
 f205ec8a581b4dfd0f42e71d398da73b *man/get_user_agent.Rd
 e9ddf582c94e6551cef876d1c92f3053 *man/gorth.Rd
-143553d76b0f6108c43aaa25e5ef85cd *man/gost.Rd
+27def2bdc4dcc6c5d83d831d3cd9fef5 *man/gost.Rd
 bd79be31e4ebdb9190559faae223606d *man/gostplot.Rd
 cb624f65423fec09a9f7ffa6fd459165 *man/gsnpense.Rd
 db3d7b39eb2d6bb82c8c1eb3734f9c1d *man/mapViridis.Rd
@@ -17,3 +21,5 @@ dae50467deeb579ed0b523dc8a33a126 *man/set_base_url.Rd
 b16b1fd5189b599a359b1ed58311be05 *man/set_tls_version.Rd
 50e075940770d22c23478e116fb5501f *man/set_user_agent.Rd
 88c6f5790c8ea235cd4679cc2edac826 *man/upload_GMT_file.Rd
+acf1348960da6aa2e1cffbe59ed43d88 *vignettes/extdata/biocarta.gmt
+2823628754f543fc89ee07871a1ffe4f *vignettes/gprofiler2.Rmd

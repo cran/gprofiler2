@@ -41,16 +41,16 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #'  that this can decrease performance and make the query slower.
 #'  In addition, a column 'intersection' is created that contains the gene id-s that intersect between the query and term.
 #'  This parameter does not work if 'multi_query' is set to TRUE.
-#' @param user_threshold custom p-value threshold, results with a larger p-value are
-#'  excluded.
+#' @param user_threshold custom p-value threshold for significance, results with smaller p-value are tagged as significant. We don't recommend to set it higher than 0.05.
 #' @param correction_method the algorithm used for multiple testing correction, one of "gSCS" (synonyms: "analytical", "g_SCS"), "fdr" (synonyms: "false_discovery_rate"), "bonferroni".
-#' @param domain_scope how to define statistical domain, one of "annotated", "known" or "custom".
-#' @param custom_bg vector of gene names to use as a statistical background. If given, the domain_scope is set to 'custom'.
+#' @param domain_scope how to define statistical domain, one of "annotated", "known", "custom" or "custom_annotated".
+#' @param custom_bg vector of gene names to use as a statistical background. If given, the domain_scope is by default set to "custom", if domain_scope is set to "custom_annotated", then this is used instead.
 #' @param numeric_ns namespace to use for fully numeric IDs.
 #' @param sources a vector of data sources to use. Currently, these include
 #'  GO (GO:BP, GO:MF, GO:CC to select a particular GO branch), KEGG, REAC, TF,
 #'  MIRNA, CORUM, HP, HPA, WP. Please see the g:GOSt web tool for the comprehensive
 #'  list and details on incorporated data sources.
+#' @param as_short_link indicator to return results as short-link to the g:Profiler web tool. If set to TRUE, then the function returns the results URL as a character string instead of the data.frame.
 #' @return A named list where 'result' contains data.frame with the enrichment analysis results and 'meta' contains metadata needed for Manhattan plot. If the input
 #'  consisted of several lists the corresponding list is indicated with a variable
 #'  'query'.
@@ -59,6 +59,8 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #'  The latter conveys info about the intersecting genes between the corresponding query and term.
 #'
 #'  The result fields are further described in \url{https://biit.cs.ut.ee/gprofiler_beta/page/apis#gost_query_results}
+#'
+#'  If 'as_short_link' is set to TRUE, then the result is a character short-link to see and share corresponding results via the g:Profiler web tool.
 #' @author  Liis Kolberg <liis.kolberg@@ut.ee>, Uku Raudvere <uku.raudvere@@ut.ee>
 #' @examples
 #' gostres <- gost(c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"))
@@ -74,10 +76,11 @@ gost <- function(query,
                       evcodes = FALSE,
                       user_threshold = 0.05,
                       correction_method = c("g_SCS", "bonferroni", "fdr", "false_discovery_rate", "gSCS", "analytical"),
-                      domain_scope = c("annotated", "known", "custom"),
+                      domain_scope = c("annotated", "known", "custom", "custom_annotated"),
                       custom_bg = NULL,
                       numeric_ns  = "",
-                      sources = NULL
+                      sources = NULL,
+                      as_short_link = FALSE
                     ) {
 
   url = paste0(file.path(gp_globals$base_url, "api", "gost", "profile"), "/")
@@ -102,10 +105,10 @@ gost <- function(query,
     query = query[!is.na(query)]
   }
 
-  # Parameters
-
   ## evaluate choices
   correction_method <- match.arg(correction_method)
+  domain_scope <- match.arg(domain_scope)
+
 
   if (startsWith(organism, "gp__")){
     message("Detected custom GMT source request")
@@ -123,36 +126,79 @@ gost <- function(query,
     if (!is.vector(custom_bg)){
       stop("custom_bg must be a vector")
     }
-    message("Detected custom background input, domain scope is set to 'custom'")
-    domain_scope <- "custom"
+    if (!domain_scope %in% c("custom_annotated", "custom")){
+      message("Detected custom background input, domain scope is set to 'custom'")
+      domain_scope <- "custom"
+    }
     t <- ifelse(length(custom_bg) == 1, custom_bg <- jsonlite::unbox(custom_bg), custom_bg <- custom_bg)
+  }else{
+    if (domain_scope %in% c("custom_annotated", "custom")){
+      stop("Domain scope is set to custom, but no background genes detected from the input.")
+    }
   }
 
-  domain_scope <- match.arg(domain_scope)
+  if (as_short_link){
+    # query should be a string in this case
 
-  body <- jsonlite::toJSON((
-    list(
-      organism = jsonlite::unbox(organism),
-      query = query,
-      sources = sources,
-      user_threshold = jsonlite::unbox(user_threshold),
-      all_results = jsonlite::unbox(!significant),
-      ordered = jsonlite::unbox(ordered_query),
-      no_evidences = jsonlite::unbox(!evcodes),
-      combined = jsonlite::unbox(multi_query),
-      measure_underrepresentation = jsonlite::unbox(measure_underrepresentation),
-      no_iea = jsonlite::unbox(exclude_iea),
-      domain_scope = jsonlite::unbox(domain_scope),
-      numeric_ns = jsonlite::unbox(numeric_ns),
-      significance_threshold_method = jsonlite::unbox(correction_method),
-      background = custom_bg,
-      output = jsonlite::unbox("json")
-    )
-  ),
-  auto_unbox = FALSE,
-  null = "null")
+    if(!is.null(names(query))){
+      query2 = paste0(unlist(lapply(names(query), function(x) paste(">", x, "\n", paste0(query[[x]], collapse = " ")))), collapse = "\n")
+      multi_query = TRUE
+    }else{
+      query2 = paste0(query, collapse = " ")
+    }
+
+    url = file.path("http://biit.cs.ut.ee", "gplink", "l")
+
+    body <- jsonlite::toJSON((
+      list(
+        url = jsonlite::unbox(file.path(gprofiler2::get_base_url(), "gost")),
+        payload = {
+          list(
+            organism = jsonlite::unbox(organism),
+            query = jsonlite::unbox(query2),
+            sources = sources,
+            user_threshold = jsonlite::unbox(user_threshold),
+            all_results = jsonlite::unbox(!significant),
+            ordered = jsonlite::unbox(ordered_query),
+            no_evidences = jsonlite::unbox(!evcodes),
+            combined = jsonlite::unbox(multi_query),
+            measure_underrepresentation = jsonlite::unbox(measure_underrepresentation),
+            no_iea = jsonlite::unbox(exclude_iea),
+            domain_scope = jsonlite::unbox(domain_scope),
+            numeric_ns = jsonlite::unbox(numeric_ns),
+            significance_threshold_method = jsonlite::unbox(correction_method),
+            background = custom_bg)
+        }
+      )
+    ),
+    auto_unbox = FALSE,
+    null = "null")
+
+  } else {
+    body <- jsonlite::toJSON((
+      list(
+        organism = jsonlite::unbox(organism),
+        query = query,
+        sources = sources,
+        user_threshold = jsonlite::unbox(user_threshold),
+        all_results = jsonlite::unbox(!significant),
+        ordered = jsonlite::unbox(ordered_query),
+        no_evidences = jsonlite::unbox(!evcodes),
+        combined = jsonlite::unbox(multi_query),
+        measure_underrepresentation = jsonlite::unbox(measure_underrepresentation),
+        no_iea = jsonlite::unbox(exclude_iea),
+        domain_scope = jsonlite::unbox(domain_scope),
+        numeric_ns = jsonlite::unbox(numeric_ns),
+        significance_threshold_method = jsonlite::unbox(correction_method),
+        background = custom_bg,
+        output = jsonlite::unbox("json")
+      )
+    ),
+    auto_unbox = FALSE,
+    null = "null")
+  }
+
   # Headers
-
   headers <-
     list("Accept" = "application/json",
          "Content-Type" = "application/json",
@@ -184,6 +230,12 @@ gost <- function(query,
   }
 
   res <- jsonlite::fromJSON(txt)
+
+  if (as_short_link){
+    shortlink = paste0('https://biit.cs.ut.ee/gplink/l/', res$result)
+    return(shortlink)
+  }
+
   df = res$result
   meta = res$meta
 
@@ -360,7 +412,7 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
     p_values <- query <- significant <- NULL
     # spread the data frame to correct form
     df$query <- list(names(meta$query_metadata$queries))
-    df <- tidyr::unnest(data = df, p_values, query, significant)
+    df <- tidyr::unnest(data = df, cols = c(p_values, query, significant))
     df <- dplyr::rename(df, p_value = p_values)
   }
 
@@ -609,7 +661,6 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width =
 #' @export
 publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE, show_columns = c("source", "term_name", "term_size", "intersection_size"), filename = NULL){
   # gostres is the GOSt response list (contains results and metadata) or a data frame
-
   term_id <- p_values <- query <- p_value <- NULL
 
   if (class(gostres) == "list"){
@@ -651,7 +702,7 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
 
   # default column names to show
   show_columns <- unique(append(show_columns, c("id", "term_id", "p_value")))
-  gp_colnames <- c("id", "source", "term_id", "term_name", "term_size", "query_size", "intersection_size", "p_value")
+  gp_colnames <- c("id", "source", "term_id", "term_name", "term_size", "query_size", "intersection_size", "p_value", "intersection_sizes", "query_sizes")
 
   colnames <- gp_colnames[which(gp_colnames %in% show_columns)]
 
@@ -667,27 +718,37 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
       subdf$query <- list(names(meta$query_metadata$queries))
     } else {
       qnames = paste("query", seq(1, length(subdf$p_values[[1]])), sep = "_")
-      subdf$query <- list(names(qnames))
+      subdf$query <- list(qnames)
+    }
+    spread_col = c("p_values")
+    if ("query_sizes" %in% show_columns){
+      spread_col = append(spread_col, "query_sizes")
+    }
+    if ("intersection_sizes" %in% show_columns){
+      spread_col = append(spread_col, "intersection_sizes")
     }
     # spread the data frame to correct form
-    subdf <- tidyr::unnest(data = subdf, p_values, query)
+    subdf <- tidyr::unnest(data = subdf, cols = c(spread_col, query))
     subdf <- dplyr::rename(subdf, p_value = p_values)
     subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
     showdf <- subdf[,stats::na.omit(match(c(colnames, "query"), names(subdf)))]
-    showdf <- tidyr::spread(showdf, query, p_value)
-    idx <- which(!is.na(match(names(showdf), unique(subdf$query))))
+    #showdf <- subdf[,stats::na.omit(match(c(colnames, "query", spread_col), names(subdf)))]
+    showdf <- tidyr::pivot_wider(showdf, names_from = query, values_from = c(p_value, spread_col[spread_col!="p_values"]))
   } else {
     if ("query" %in% names(subdf) & length(unique(subdf$query)) > 1){
       subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
       showdf <- subdf[,stats::na.omit(match(c(colnames, "query"), names(subdf)))]
-      showdf <- tidyr::spread(showdf, query, p_value)
-      idx <- which(!is.na(match(names(showdf), unique(subdf$query))))
+      spread_col <- c("p_value", "intersection_size", "query_size")
+      spread_col <- intersect(colnames(showdf), spread_col)
+      showdf <- tidyr::pivot_wider(showdf, names_from = query, values_from = spread_col, names_prefix = ifelse(length(spread_col) == 1,"p_value_", ""))
+
     } else {
       subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
       showdf <- subdf[,stats::na.omit(match(colnames, names(subdf)))]
-      idx <- which(!is.na(match(names(showdf), "p_value")))
     }
   }
+  # find the column to color
+  idx <- which(grepl(pattern = "p_value", x = names(showdf)))
 
   # Prepare table
   colours <- matrix("white", nrow(showdf), ncol(showdf))
@@ -1010,7 +1071,8 @@ gconvert = function(
   })
 
   df <- plyr::ldply(df, function(x) data.frame(x, stringsAsFactors = F))
-
+  df <- df[order(df$input_number, df$target_number),]
+  row.names(df) <- NULL
   return(df)
 }
 
@@ -1127,6 +1189,8 @@ gorth <- function(
 
   df <- plyr::ldply(df, function(x) data.frame(x, stringsAsFactors = F))
 
+  df <- df[order(df$input_number, df$ensg_number),]
+  row.names(df) <- NULL
   return(df)
 }
 

@@ -1,0 +1,464 @@
+---
+title: "Gene list functional enrichment analysis and namespace conversion with gprofiler2"
+#rmarkdown::html_vignette
+output: 
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    toc: true
+vignette: >
+  %\VignetteIndexEntry{gprofiler2}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+<style>
+    body {
+        max-width: 1500px;
+        text-align: justify
+    }
+    .page-header {
+      background-image: none;
+      background-color: #ff7600;
+    }
+    .main-content h2 {
+      color: #ff7600;
+    }
+</style>
+
+
+## Overview
+
+[gprofiler2](https://CRAN.R-project.org/package=gprofiler2) provides an R interface to the widely used web toolset g:Profiler ([https://biit.cs.ut.ee/gprofiler](https://biit.cs.ut.ee/gprofiler)). 
+
+The toolset performs functional enrichment analysis and visualization of gene lists, converts gene/protein/SNP identifiers to numerous namespaces, and maps orthologous genes across species. 
+[g:Profiler](https://biit.cs.ut.ee/gprofiler) relies on [Ensembl databases](https://www.ensembl.org/index.html) as the primary data source and follows their release cycle for updates.
+
+The main tools in [g:Profiler](https://biit.cs.ut.ee/gprofiler) are:
+
+* [g:GOSt](https://biit.cs.ut.ee/gprofiler/gost) - functional enrichment analysis of gene lists 
+* [g:Convert](https://biit.cs.ut.ee/gprofiler/convert) - gene/protein/transcript identifier conversion across various namespaces 
+* [g:Orth](https://biit.cs.ut.ee/gprofiler/orth) - orthology search across species 
+
+The input for any of the tools can consist of mixed types of gene identifiers, SNP rs-IDs, chromosomal intervals or term IDs. The gene IDs from chromosomal regions are retrieved automatically. The gene doesn't need to fit the region fully. The format for chromosome regions is chr:region\_start:region\_end, e.g. X\:1\:2000000. In case of term IDs like [GO:0007507](http://www.informatics.jax.org/vocab/gene_ontology/GO:0007507) (heart development), g:Profiler uses all the genes annotated to that term as an input (in this case about six hundred human genes associated to heart development). Fully numeric identifiers need to be prefixed with the corresponding namespace. g:Profiler will automatically prefix all the detected numeric IDs using the prefix determined by the selected numeric namespace parameter.
+
+* [g:SNPense](https://biit.cs.ut.ee/gprofiler/snpense) - mapping SNP rs-identifiers to chromosome positions, protein coding genes and variant effects 
+
+Corresponding functions in the [gprofiler2](https://CRAN.R-project.org/package=gprofiler2) R package are:
+
+* [`gost`][Gene list functional enrichment analysis with `gost`]
+* [`gconvert`][Gene identifier conversion with `gconvert`]
+* [`gorth`][Mapping homologous genes across related organisms with `gorth`]
+* [`gsnpense`][SNP identifier conversion to gene name with `gsnpense`]
+
+[gprofiler2](https://CRAN.R-project.org/package=gprofiler2) uses the [publicly available APIs](https://biit.cs.ut.ee/gprofiler/page/apis) of the g:Profiler web tool which ensures that the results from all of the interfaces are consistent.
+
+The package corresponds to the 2019 update of [g:Profiler](https://biit.cs.ut.ee/gprofiler) and provides access for versions *e94_eg41_p11* and higher. The older versions are available from the previous R package [gProfileR](https://CRAN.R-project.org/package=gProfileR).
+
+----
+
+## Installation and loading
+
+```{r eval = FALSE}
+install.packages("gprofiler2")
+```
+
+```{r setup}
+library(gprofiler2)
+```
+----
+
+## Gene list functional enrichment analysis with `gost`
+
+### Enrichment analysis
+
+`gost` enables to perform functional profiling of gene lists. The function performs statistical enrichment analysis to find over-representation of functions from Gene Ontology, biological pathways like KEGG and Reactome, human disease annotations, etc. This is done with the hypergeometric test followed by correction for multiple testing. 
+
+A standard input of the `gost` function is a (named) list of gene identifiers. The list can consist of mixed types of identifiers (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or functional term IDs. 
+
+The parameter `organism` enables to define the corresponding source organism for the gene list. The organism names are usually constructed by concatenating the first letter of the name and the family name, e.g human - *hsapiens*. If some of the input gene identifiers are fully numeric, the parameter `numeric_ns` enables to define the corresponding namespace. See section [Supported organisms and identifier namespaces] for links to supported organisms and namespaces.
+
+If the input genes are decreasingly ordered based on some biological importance, then `ordered_query = TRUE` will take this into account. For instance, the genes can be ordered according to differential expression or absolute expression values. In this case, incremental enrichment testing is performed with increasingly larger numbers of genes starting from the top of the list. Note that with this parameter, the query size might be different for every functional term. 
+
+The parameter `significant = TRUE` is an indicator whether all or only statistically significant results should be returned. 
+
+In case of Gene Ontology (GO), the `exclude_iea = TRUE` would exclude the electronic GO annotations from the data source before testing. These are the terms with the IEA evidence code indicating that these annotations are assigned to genes using in silico curation methods. 
+
+In order to measure under-representation instead of over-representation set `measure_underrepresentation = TRUE`. 
+
+By default, the `user_threshold = 0.05` which defines a custom p-value significance threshold for the results. Results with smaller p-value are tagged as significant. We don't recommend to set it higher than 0.05. 
+
+In order to reduce the amount of false positives, a [multiple testing correction method](https://biit.cs.ut.ee/gprofiler/page/docs#significance_threhshold) is applied to the enrichment p-values. By default, our tailor-made algorithm g\:SCS is used (`correction_method = "gSCS"` with synonyms `g_SCS` and `analytical`), but there are also options to apply the Bonferroni correction (`correction_method = "bonferroni"`) or FDR (`correction_method = "fdr"`). The adjusted p-values are reported in the results. 
+
+The parameter `domain_scope` defines how the [statistical domain size](https://biit.cs.ut.ee/gprofiler/page/docs#statistical_domain_scope) is calculated. This is one of the parameters in the hypergeometric probability function. If `domain_scope = "annotated"` then only the genes with at least one annotation are considered to be part of the full domain. In case if `domain_scope = "known"` then all the genes of the given organism are considered to be part of the domain.
+
+Depending on the research question, in some occasions it is advisable to limit the domain/background set. For example, one may use the custom background when they want to compare a gene list with a custom list of expressed genes. `gost` provides the means to define a custom background as a (mixed) list of gene identifiers with the parameter `custom_bg`. If this parameter is used, then the domain scope is set to `domain_scope = "custom"`. It is also possible to set this parameter to `domain_scope = "custom_annotated"` which will use the set of genes that are annotated in the data source and are also included in the user provided background list. 
+
+The parameter `sources` enables to choose the data sources of interest. By default, all the sources are analysed. The available data sources and their abbreviations are listed under section [Data sources].
+For example, if `sources = c("GO:MF", "REAC")` then only the results from molecular functions branch of Gene Ontology and the pathways from Reactome are returned. One can also upload their own annotation data which is further described in the section [Custom data sources with `upload_GMT_file`].
+
+```{r}
+gostres <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
+                organism = "hsapiens", ordered_query = FALSE, 
+                multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
+                measure_underrepresentation = FALSE, evcodes = FALSE, 
+                user_threshold = 0.05, correction_method = "g_SCS", 
+                domain_scope = "annotated", custom_bg = NULL, 
+                numeric_ns = "", sources = NULL, as_short_link = FALSE)
+```
+
+The result is a named `list` where **"result"** is a `data.frame` with the enrichment analysis results and **"meta"** containing a named `list` with all the metadata for the query. 
+
+```{r}
+names(gostres)
+```
+
+```{r}
+head(gostres$result)
+```
+
+The result `data.frame` contains the following columns:
+
+* query - the name of the input query which by default is the order of query with the prefix "query_". This can be changed by using a named `list` input.
+* significant - indicator for statistically significant results
+* p_value - hypergeometric p-value after correction for multiple testing
+* term_size - number of genes that are annotated to the term
+* query_size - number of genes that were included in the query. This might be different from the size of the original list if:
+    1) any genes were mapped to multiple Ensembl gene IDs
+    2) any genes failed to be mapped to Ensembl gene IDs
+    3) the parameter `ordered_query = TRUE` and the optimal cutoff for the term was found before the end of the query
+    4) the `domain_scope` was set to "annotated" or "custom"
+* intersection_size - the number of genes in the input query that are annotated to the corresponding term
+* precision - the proportion of genes in the input list that are annotated to the function (defined as intersection_size/query_size)
+* recall - the proportion of functionally annotated genes that the query recovers (defined as intersection_size/term_size)
+* term_id - unique term identifier (e.g GO\:0005005)
+* source - the abbreviation of the data source for the term (e.g. GO\:BP)
+* term_name - the short name of the function
+* effective_domain_size - the total number of genes "in the universe" used for the hypergeometric test
+* source_order - numeric order for the term within its data source (this is important for drawing the results)
+* parents - list of term IDs that are hierarchically directly above the term. For non-hierarchical data sources this points to an artificial root node. 
+
+```{r}
+names(gostres$meta)
+```
+
+The query parameters are listed in the **"query_metadata"** part of the metadata object. The **"result_metadata"** includes the statistics of data sources that are used in the enrichment testing. This includes the **"domain_size"** showing the number of genes annotated to this domain. The **"number_of_terms"** indicating the number of terms g:Profiler has in the database for this source and the nominal significance **"threshold"** for this source. The **"genes_metadata"** shows the specifics of the query genes (failed, ambiguous or duplicate inputs) and their mappings to the ENSG namespace. In addition, the query time and the used g:Profiler data version are shown in the metadata. 
+
+The parameter `evcodes = TRUE` includes the evidence codes to the results. In addition, a column **"intersection"** will appear to the results showing the input gene IDs that intersect with the corresponding functional term. Note that his parameter can decrease the performance and make the query slower. 
+
+```{r}
+gostres2 <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
+                organism = "hsapiens", ordered_query = FALSE, 
+                multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
+                measure_underrepresentation = FALSE, evcodes = TRUE, 
+                user_threshold = 0.05, correction_method = "g_SCS", 
+                domain_scope = "annotated", custom_bg = NULL, 
+                numeric_ns = "", sources = NULL)
+```
+
+```{r}
+head(gostres2$result)
+```
+
+The result `data.frame` will include additional columns:
+
+* evidence_codes - a lists of all evidence codes for the intersecting genes between input and the term. The evidences are separated by comma for each gene.  
+* intersection - a comma separated list of genes from the query that are annotated to the corresponding term
+
+The query results can also be gathered into a short-link to the g:Profiler web tool. For that, set the parameter `as_short_link = TRUE`. In this case, the function `gost()` returns only the web tool link to the results as a character string. For example, this is useful when you discover an interesting result you want to instantly share with your colleagues. Then you can just programmatically generate the short-link and copy it to your colleagues. 
+
+```{r eval = FALSE}
+gostres_link <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
+                as_short_link = TRUE)
+```
+
+This query returns a short-link of form [https://biit.cs.ut.ee/gplink/l/HfapQyB5TJ](https://biit.cs.ut.ee/gplink/l/HfapQyB5TJ).
+
+### Multiple queries
+
+The function `gost` also allows to perform enrichment on multiple input gene lists. Multiple queries are automatically detected if the input `query` is a `list` of vectors with gene identifiers and the results are combined into identical `data.frame` as in case of single query. 
+
+```{r}
+multi_gostres1 <- gost(query = list("chromX" = c("X:1000:1000000", "rs17396340", 
+                                                 "GO:0005005", "ENSG00000156103", "NLRP1"),
+                             "chromY" = c("Y:1:10000000", "rs17396340", 
+                                          "GO:0005005", "ENSG00000156103", "NLRP1")), 
+                       multi_query = FALSE)
+```
+
+```{r}
+head(multi_gostres1$result)
+```
+
+The column **"query"** in the result `data.frame` will now contain the corresponding name for the query. If no name is specified, then the query name is defined as the order of query with the prefix "query\_".
+
+Another option for multiple gene lists is setting the parameter `multiquery = TRUE`. Then the results from all of the input queries are grouped according to term IDs for better comparison. 
+
+```{r}
+multi_gostres2 <- gost(query = list("chromX" = c("X:1000:1000000", "rs17396340",
+                                                 "GO:0005005", "ENSG00000156103", "NLRP1"),
+                             "chromY" = c("Y:1:10000000", "rs17396340", 
+                                          "GO:0005005", "ENSG00000156103", "NLRP1")), 
+                       multi_query = TRUE)
+```
+
+```{r}
+head(multi_gostres2$result)
+```
+
+The result `data.frame` contains the following columns:
+
+* term_id - unique term identifier (e.g GO\:0005005)
+* **p_values** - hypergeometric p-values after correction for multiple testing in the order of input queries
+* **significant** - indicators in the order of input queries for statistically significant results
+* term_size - number of genes that are annotated to the term
+* **query_sizes** - number of genes that were included in the query in the order of input queries
+* **intersection_sizes** - the number of genes in the input query that are annotated to the corresponding term in the order of input queries
+* source - the abbreviation of the data source for the term (e.g. GO\:BP)
+* term_name - the short name of the function
+* effective_domain_size - the total number of genes "in the universe" used for the hypergeometric test
+* source_order - numeric order for the term within its data source (this is important for drawing the results)
+* source_order - numeric order for the term within its data source (this is important for drawing the results)
+* parents - list of term IDs that are hierarchically directly above the term. For non-hierarchical data sources this points to an artificial root node.
+
+### Visualization
+
+A major update in this package is providing the functionality to produce similar visualizations as are now available from the web tool. 
+
+The enrichment results are visualized with a [Manhattan-like-plot](https://biit.cs.ut.ee/gprofiler/page/docs#gost) using the function `gostplot` and the previously found `gost` results `gostres`:
+
+```{r fig.width = 9.5}
+gostplot(gostres, capped = TRUE, interactive = TRUE)
+```
+
+The x-axis represents the functional terms that are grouped and color-coded according to data sources and positioned according to the fixed **"source_order"**. The order is defined in a way that terms that are closer to each other in the source hierarchy are also next to each other in the Manhattan plot. 
+The source colors are adjustable with the parameter `pal` that defines the color map with a named `list`.
+
+The y-axis shows the adjusted p-values in negative log10 scale. Every circle is one term and is sized according to the term size, i.e larger terms have larger circles. If `interactive = TRUE`, then an interactive plot is returned using the `plotly` package.
+Hovering over the circle will show the corresponding information. 
+
+The parameter `capped = TRUE` is an indicator whether the -log10(p-values) would be capped at 16 if bigger than 16. This fixes the scale of y-axis to keep Manhattan plots from different queries comparable and is also intuitive as, statistically, p-values smaller than that can all be summarised as highly significant. 
+
+If `interactive = FALSE`, then the function returns a static `ggplot` object. 
+
+```{r fig.width = 9.5, fig.height = 4}
+p <- gostplot(gostres, capped = FALSE, interactive = FALSE)
+p
+```
+
+The function `publish_gostplot` takes the static plot object as an input and enables to highlight a selection of interesting terms from the results with numbers and table of results. These can be set with parameter `highlight_terms` listing the term IDs in a `vector` or as a `data.frame` with column **"term_id"** such as a subset of the result `data.frame`.
+
+```{r fig.width = 9.5}
+pp <- publish_gostplot(p, highlight_terms = c("GO:0048013", "REAC:R-HSA-3928663"), 
+                       width = NA, height = NA, filename = NULL )
+```
+
+The function also allows to save the result into an image file into PNG, PDF, JPEG, TIFF or BMP with parameter `filename`. The plot width and height can be adjusted with corresponding parameters `width` and `height`.
+
+If additional graphical parameters like increased resolution are needed, then the plot objects can easily be saved using the function `ggsave` from the package `ggplot2`.
+
+The `gost` results can also be visualized with a table. The `publish_gosttable` will create a nice-looking table with the result statistics for the `highlight_terms` from the result `data.frame`. 
+The `highlight_terms` can be a vector of term IDs or a subset of the results. 
+
+```{r fig.width = 9.5, fig.height = 3}
+pt <- publish_gosttable(gostres, highlight_terms = gostres$result[c(1:2,10,100:102,120,124,125),],
+                        use_colors = TRUE, 
+                        show_columns = c("source", "term_name", "term_size", "intersection_size"),
+                        filename = NULL)
+```
+
+The parameter `use_colors = FALSE` indicates that the p-values column should not be highlighted with background colors. The `show_columns` is used to list the names of additional columns to show in the table in addition to the **"term_id"** and **"p_value"**. 
+
+The same functions work also in case of multiquery results showing multiple Manhattan plots on top of each other:
+
+```{r fig.width = 9.5, fig.height = 7, warning = F}
+gostplot(multi_gostres2, capped = TRUE, interactive = TRUE)
+```
+
+Note that if a term is clicked on one of the Manhattan plots, it is also highlighted in the others (if it is present) enabling to compare the multiple queries. The insignificant terms are shown with lighter color. 
+
+```{r fig.width = 10, fig.height = 2, warning = F}
+pt2 <- publish_gosttable(multi_gostres1, 
+                         highlight_terms = multi_gostres1$result[c(1, 24, 82, 176, 204, 234),],
+                        use_colors = TRUE, 
+                        show_columns = c("source", "term_name", "term_size"),
+                        filename = NULL)
+```
+
+### Data sources
+
+Available data sources and their abbreviations are:
+
+* [Gene Ontology](http://geneontology.org/) (GO or by branch GO\:MF, GO\:BP, GO\:CC)
+* [KEGG](https://www.genome.jp/kegg/) (KEGG)
+* [Reactome](https://reactome.org/) (REAC)
+* [WikiPathways](https://www.wikipathways.org) (WP)
+* [TRANSFAC](https://genexplain.com/transfac/) (TF)
+* [miRTarBase](http://mirtarbase.mbc.nctu.edu.tw/php/index.php) (MIRNA)
+* [Human Protein Atlas](https://www.proteinatlas.org/) (HPA)
+* [CORUM](https://mips.helmholtz-muenchen.de/corum/) (CORUM)
+* [Human phenotype ontology](https://hpo.jax.org/) (HP)
+
+### Custom data sources with `upload_GMT_file`
+
+In addition to the available GO, KEGG, etc data sources, users can upload their own custom data source using the Gene Matrix Transposed file format (GMT). The file format is described in [here](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats#GMT:_Gene_Matrix_Transposed_file_format_.28.2A.gmt.29). The users can compose the files themselves or use pre-compiled gene sets from available dedicated websites like Molecular Signatures Database ([MSigDB](http://software.broadinstitute.org/gsea/msigdb/genesets.jsp)), etc. The GMT files for g:Profiler default sources (except for KEGG and Transfac as we are restricted by data source licenses) are downloadabale from the Data sources section in [g:Profiler](https://biit.cs.ut.ee/gprofiler/gost).
+
+`upload_GMT_file` enables to upload GMT file(s). The input `gmtfile` is the filename of the GMT file together with the path to the file. The input can also be several GMT files compressed into a ZIP file. 
+The file extension should be **.gmt** or **.zip** in case of multiple GMT files. The uploaded filename is used to define the source name in the enrichment results.
+
+For example, using the BioCarta gene sets downloaded from the [MSigDB Collections] (http://software.broadinstitute.org/gsea/msigdb/collections.jsp#C7)
+
+```{r eval = F}
+download.file(url = "http://software.broadinstitute.org/gsea/resources/msigdb/7.0/c2.cp.biocarta.v7.0.symbols.gmt", destfile = "extdata/biocarta.gmt")
+```
+
+```{r eval = F}
+upload_GMT_file(gmtfile = "extdata/biocarta.gmt")
+```
+
+The result is a string that denotes the unique ID of the uploaded data source in the [g:Profiler](https://biit.cs.ut.ee/gprofiler) database. In this examaple, the ID is **gp\_\_TEXF\_hZLM\_d18**.
+
+After the upload, this ID can be used as a value for the parameter `organism` in the `gost` function. The input `query` should consist of identifiers that are available in the GMT file. Note that all the genes in the GMT file define the domain size and therefore it is not sufficient to include only the selection of interesting terms to the file.  
+
+```{r}
+custom_gostres <- gost(query = c("MAPK3",	"PIK3C2G", "HRAS", "PIK3R1", "MAP2K1", 
+                                 "RAF1", "PLCG1",	"GNAQ",	"MAPK1", "PRKCB",	"CRK", "BCAR1", "NFKB1"),
+                       organism = "gp__TEXF_hZLM_d18")
+head(custom_gostres$result)
+```
+
+There is no need to repeatedly upload the same GMT file(s) every time before the enrichment analysis. This can only be uploaded once and then the ID can be used in any further enrichment analyses that are based on that custom source. The same ID can also be used in the [web tool](https://biit.cs.ut.ee/gprofiler) as a token under the Custom GMT options. 
+For example, the same query in the web tool is available from [https://biit.cs.ut.ee/gplink/l/jh3HdbUWQZ](https://biit.cs.ut.ee/gplink/l/jh3HdbUWQZ).
+
+----
+
+## Gene identifier conversion with `gconvert`
+
+`gconvert` enables to map between genes, proteins, microarray probes, common names, various database identifiers, etc, from numerous [databases](https://biit.cs.ut.ee/gprofiler/page/namespaces-list) and for many [species](https://biit.cs.ut.ee/gprofiler/page/organism-list). 
+
+```{r}
+gconvert(query = c("REAC:R-HSA-3928664", "rs17396340", "NLRP1"), organism = "hsapiens", 
+         target="ENSG", mthreshold = Inf, filter_na = TRUE)
+```
+
+Default `target = ENSG` database is Ensembl ENSG, but `gconvert` also supports other major naming conventions like Uniprot, RefSeq, Entrez, HUGO, HGNC and many more. In addition, a large variety of microarray platforms like Affymetrix, Illumina and Celera are available.
+
+The parameter `mthreshold` sets the maximum number of results per initial alias. Shows all results by default. The parameter `filter_na = TRUE` will exclude the results without any corresponding targets.
+
+The result is a `data.frame` with columns:
+
+* input_number - the order of the input in the input list
+* input - input identifier
+* target_number - the number that depicts the input number and the order of target for that input. One input can have several targets. For examaple, 1.2 stands for the second target of first input. 
+* target - corresponding identifier from the selected `target` namespace 
+* name - name of the target gene
+* description - description of the target gene
+* namespace - namespaces where the initial input is available
+
+----
+
+## Mapping homologous genes across related organisms with `gorth`
+
+`gorth` translates gene identifiers between organisms. The full list of supported organisms is available [here](https://biit.cs.ut.ee/gprofiler/page/organism-list).
+
+For example, to convert gene list between mouse (`source_organism = mmusculus`) and human (`target_organism = hsapiens`):
+
+```{r}
+gorth(query = c("Klf4", "Sox2", "71950"), source_organism = "mmusculus", 
+      target_organism = "hsapiens", mthreshold = Inf, filter_na = TRUE,
+      numeric_ns = "ENTREZGENE_ACC")
+```
+
+The parameter `mthreshold` is used to set the maximum number of ortholog names per gene to show. This is useful to handle the problem of having many orthologs per gene (most of them uninformative). The function tries to find the most informative by selecting
+the most popular ones.
+
+If some of the input gene identifiers are fully numeric, the parameter `numeric_ns` enables to define the corresponding namespace. In this case the namespace for gene identifier 71950 is called ENTREZGENE_ACC. Full list of supported namespaces is available [here](https://biit.cs.ut.ee/gprofiler/page/namespaces-list). The parameter `filter_na = TRUE` is used for filtering out results without any target. 
+
+The result is a `data.frame` with columns:
+
+* input_number - the order of the gene in the input list
+* input - input gene identifier
+* input_ensg - Ensembl ID of the input gene
+* ensg_number - consists of three dot-delimited numbers (e.g. 4.1.2) where the first number is the input_number. The input gene name might map to several Ensembl gene ID-s in the source organism database which is shown with the second number. Any Ensembl ID in the source organism database might be mapped to several IDs in the target organism database which is indicated with the third number.
+* ortholog_name - corresponding gene name from target organism
+* ortholog_ensg - corresponding Ensembl ID from target organism
+* description - corresponding ortholog description
+
+----
+
+## SNP identifier conversion to gene name with `gsnpense`
+
+`gsnpense` converts a list of SNP rs-codes (e.g. rs11734132) to chromosomal coordinates, gene names and predicted variant effects. Mapping is only available for variants that overlap with at least one protein coding Ensembl gene. 
+
+```{r}
+gsnpense(query = c("rs11734132", "rs4305276", "rs17396340", "rs3184504"), 
+         filter_na = TRUE)
+```
+
+The parameter `filter_na = TRUE` will exclude the results without any corresponding target genes.
+
+```{r}
+gsnpense(query = c("rs11734132", "rs4305276", "rs17396340", "rs3184504"), 
+         filter_na = FALSE)
+```
+
+The result is a `data.frame` with columns:
+
+* rs_id - input SNP rs-code
+* chromosome - SNP chromosome
+* start - SNP start position
+* end - SNP end position
+* strand - SNP strand (+/-)
+* ensgs - corresponding Ensembl gene IDs; can contain a `list` with multiple values
+* gene_names - corresponding gene names; can contain a `list` with multiple values
+* variants - a `data.frame` with corresponding variant effects
+
+## Accessing archived versions or the beta release with `set_base_url`
+
+You can change the underlying tool version to beta with:
+
+```{r}
+set_base_url("http://biit.cs.ut.ee/gprofiler_beta")
+```
+
+You can check the current version with:
+```{r}
+get_base_url()
+```
+
+Similarly, for the [archived versions](https://biit.cs.ut.ee/gprofiler/page/archives):
+
+```{r}
+set_base_url("http://biit.cs.ut.ee/gprofiler_archive3/e95_eg42_p13")
+```
+
+Note that gprofiler2 package is only compatible with versions *e94\_eg41\_p11* and higher.
+
+----
+
+## Supported organisms and identifier namespaces
+
+gprofiler2 package supports all the same organisms, namespaces and data sources as the web tool. The list of organisms and corresponding data sources is available [here](https://biit.cs.ut.ee/gprofiler/page/organism-list).
+
+The full list of namespaces that g:Profiler recognizes is available [here](https://biit.cs.ut.ee/gprofiler/page/namespaces-list).
+
+----
+
+## Citation
+
+If you use the R package gprofiler2 in published research, please cite:
+
+Uku Raudvere, Liis Kolberg, Ivan Kuzmin, Tambet Arak, Priit Adler, Hedi Peterson, Jaak Vilo: **g:Profiler: a web server for functional enrichment analysis and conversions of gene lists (2019 update)** Nucleic Acids Research 2019; [doi:10.1093/nar/gkz369](https://doi.org/10.1093/nar/gkz369)
+
+## Need help?
+
+If you have questions or issues, please write to biit.support@ut.ee
+
