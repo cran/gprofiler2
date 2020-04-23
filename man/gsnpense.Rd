@@ -2,7 +2,7 @@
 % Please edit documentation in R/gprofiler2.R
 \name{gsnpense}
 \alias{gsnpense}
-\title{Convert SNP rs numbers to genes.}
+\title{Convert SNP rs identifiers to genes.}
 \usage{
 gsnpense(query, filter_na = TRUE)
 }
@@ -15,10 +15,12 @@ corresponding target name.}
 \value{
 The output is a data.frame which is a table closely corresponding to the
 web interface output. Columns 'ensgs' and 'gene_names' can contain list of multiple values.
+
+The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
 }
 \description{
 Interface to the g:Profiler tool g:SNPense (\url{https://biit.cs.ut.ee/gprofiler/snpense}) that maps SNP rs identifiers to chromosome positions, genes and variant effects.
-Available only for human SNPs.
+Available only for human variants.
 }
 \examples{
 gsnpense(c("rs11734132", "rs7961894", "rs4305276", "rs17396340", "rs3184504"))

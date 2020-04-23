@@ -4,8 +4,13 @@
 \alias{publish_gostplot}
 \title{Create and save an annotated Manhattan plot of enrichment results.}
 \usage{
-publish_gostplot(p, highlight_terms = NULL, filename = NULL,
-  width = NA, height = NA)
+publish_gostplot(
+  p,
+  highlight_terms = NULL,
+  filename = NULL,
+  width = NA,
+  height = NA
+)
 }
 \arguments{
 \item{p}{ggplot object from gostplot(gostres, interactive = FALSE) function}
@@ -29,7 +34,7 @@ The plot is very similar to the one shown in the g:GOSt web tool after clicking 
 \examples{
  gostres <- gost(c("Klf4", "Pax5", "Sox2", "Nanog"), organism = "mmusculus")
  p <- gostplot(gostres, interactive = FALSE)
- publish_gostplot(p, highlight_terms = c("GO:0001010", "WP:WP1763"))
+ publish_gostplot(p, highlight_terms = c("GO:0001010", "REAC:R-MMU-8939245"))
 }
 \author{
 Liis Kolberg <liis.kolberg@ut.ee>

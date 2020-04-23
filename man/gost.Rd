@@ -4,14 +4,24 @@
 \alias{gost}
 \title{Gene list functional enrichment.}
 \usage{
-gost(query, organism = "hsapiens", ordered_query = FALSE,
-  multi_query = FALSE, significant = TRUE, exclude_iea = FALSE,
-  measure_underrepresentation = FALSE, evcodes = FALSE,
-  user_threshold = 0.05, correction_method = c("g_SCS", "bonferroni",
-  "fdr", "false_discovery_rate", "gSCS", "analytical"),
+gost(
+  query,
+  organism = "hsapiens",
+  ordered_query = FALSE,
+  multi_query = FALSE,
+  significant = TRUE,
+  exclude_iea = FALSE,
+  measure_underrepresentation = FALSE,
+  evcodes = FALSE,
+  user_threshold = 0.05,
+  correction_method = c("g_SCS", "bonferroni", "fdr", "false_discovery_rate", "gSCS",
+    "analytical"),
   domain_scope = c("annotated", "known", "custom", "custom_annotated"),
-  custom_bg = NULL, numeric_ns = "", sources = NULL,
-  as_short_link = FALSE)
+  custom_bg = NULL,
+  numeric_ns = "",
+  sources = NULL,
+  as_short_link = FALSE
+)
 }
 \arguments{
 \item{query}{vector, or a (named) list of vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.}
@@ -24,7 +34,7 @@ used to get GSEA style p-values.}
 
 \item{multi_query}{in case of multiple gene lists, returns comparison table of these lists.
 If enabled, the result data frame has columns named 'p_values', 'query_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.
-To get the results in a long format set 'multi_query' to FALSE and just input query list of multiple gene vectors.}
+Set 'multi_query' to FALSE and simply input query as list of multiple gene vectors to get the results in a long format.}
 
 \item{significant}{whether all or only statistically significant results should
 be returned.}
@@ -46,7 +56,7 @@ This parameter does not work if 'multi_query' is set to TRUE.}
 
 \item{custom_bg}{vector of gene names to use as a statistical background. If given, the domain_scope is by default set to "custom", if domain_scope is set to "custom_annotated", then this is used instead.}
 
-\item{numeric_ns}{namespace to use for fully numeric IDs.}
+\item{numeric_ns}{namespace to use for fully numeric IDs (\href{https://biit.cs.ut.ee/gprofiler/page/namespaces-list}{list of available namespaces}).}
 
 \item{sources}{a vector of data sources to use. Currently, these include
 GO (GO:BP, GO:MF, GO:CC to select a particular GO branch), KEGG, REAC, TF,
@@ -63,7 +73,7 @@ A named list where 'result' contains data.frame with the enrichment analysis res
  If 'evcodes' is set, the return value includes columns 'evidence_codes' and 'intersection'.
  The latter conveys info about the intersecting genes between the corresponding query and term.
 
- The result fields are further described in \url{https://biit.cs.ut.ee/gprofiler_beta/page/apis#gost_query_results}
+ The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
 
  If 'as_short_link' is set to TRUE, then the result is a character short-link to see and share corresponding results via the g:Profiler web tool.
 }

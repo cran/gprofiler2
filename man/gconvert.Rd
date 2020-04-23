@@ -4,8 +4,14 @@
 \alias{gconvert}
 \title{Gene ID conversion.}
 \usage{
-gconvert(query, organism = "hsapiens", target = "ENSG",
-  numeric_ns = "", mthreshold = Inf, filter_na = TRUE)
+gconvert(
+  query,
+  organism = "hsapiens",
+  target = "ENSG",
+  numeric_ns = "",
+  mthreshold = Inf,
+  filter_na = TRUE
+)
 }
 \arguments{
 \item{query}{vector that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.}
@@ -16,7 +22,7 @@ concatenating the first letter of the name and the family name. Example: human
 
 \item{target}{target namespace.}
 
-\item{numeric_ns}{namespace to use for fully numeric IDs.}
+\item{numeric_ns}{namespace to use for fully numeric IDs (\href{https://biit.cs.ut.ee/gprofiler/page/namespaces-list}{list of available namespaces}).}
 
 \item{mthreshold}{maximum number of results per initial alias to show. Shows all by default.}
 
@@ -26,6 +32,8 @@ corresponding target.}
 \value{
 The output is a data.frame which is a table closely corresponding to the
 web interface output.
+
+The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
 }
 \description{
 Interface to the g:Profiler tool g:Convert (\url{https://biit.cs.ut.ee/gprofiler/convert}) that uses the information in Ensembl databases to handle hundreds of types of identifiers for genes, proteins, transcripts, microarray probesets, etc, for many species,

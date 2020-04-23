@@ -4,9 +4,14 @@
 \alias{gorth}
 \title{Orthology search.}
 \usage{
-gorth(query, source_organism = "hsapiens",
-  target_organism = "mmusculus", numeric_ns = "", mthreshold = Inf,
-  filter_na = TRUE)
+gorth(
+  query,
+  source_organism = "hsapiens",
+  target_organism = "mmusculus",
+  numeric_ns = "",
+  mthreshold = Inf,
+  filter_na = TRUE
+)
 }
 \arguments{
 \item{query}{vector of gene IDs to be translated.}
@@ -19,7 +24,7 @@ mouse - 'mmusculus'.}
 the first letter of the name and the family name. Example: human - 'hsapiens',
 mouse - 'mmusculus'.}
 
-\item{numeric_ns}{namespace to use for fully numeric IDs.}
+\item{numeric_ns}{namespace to use for fully numeric IDs (\href{https://biit.cs.ut.ee/gprofiler/page/namespaces-list}{list of available namespaces}).}
 
 \item{mthreshold}{maximum number of ortholog names per gene to show.}
 
@@ -29,6 +34,8 @@ corresponding target name.}
 \value{
 The output is a data.frame which is a table closely corresponding to the
 web interface output.
+
+The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
 }
 \description{
 Interface to the g:Profiler tool g:Orth (\url{https://biit.cs.ut.ee/gprofiler/orth}) that, given a target organism, retrieves the genes of the target organism that are similar in sequence to the source organism genes in the input.

@@ -4,9 +4,14 @@
 \alias{publish_gosttable}
 \title{Create and save a table with the functional enrichment analysis results.}
 \usage{
-publish_gosttable(gostres, highlight_terms = NULL, use_colors = TRUE,
-  show_columns = c("source", "term_name", "term_size",
-  "intersection_size"), filename = NULL)
+publish_gosttable(
+  gostres,
+  highlight_terms = NULL,
+  use_colors = TRUE,
+  show_columns = c("source", "term_name", "term_size", "intersection_size"),
+  filename = NULL,
+  ggplot = TRUE
+)
 }
 \arguments{
 \item{gostres}{named list from gost() function (with names 'result' and 'meta') or a data frame that has columns named "term_id" and "p_value(s)".}
@@ -18,6 +23,8 @@ publish_gosttable(gostres, highlight_terms = NULL, use_colors = TRUE,
 \item{show_columns}{names of additional columns to show besides term_id and p_value. By default the output table shows additional columns named "source", "term_name", "term_size", "intersection_size"}
 
 \item{filename}{file name to create on disk and save the annotated plot. Filename extension should be from c("png", "pdf", "jpeg", "tiff", "bmp").}
+
+\item{ggplot}{if FALSE, then the function returns a gtable object.}
 }
 \value{
 The output is a ggplot object.
@@ -31,7 +38,7 @@ The output table is very similar to the one shown under the Manhattan plot.
 }
 \examples{
  gostres <- gost(c("Klf4", "Pax5", "Sox2", "Nanog"), organism = "mmusculus")
- publish_gosttable(gostres, highlight_terms = c("GO:0001010", "WP:WP1763"))
+ publish_gosttable(gostres, highlight_terms = c("GO:0001010", "REAC:R-MMU-8939245"))
 }
 \author{
 Liis Kolberg <liis.kolberg@ut.ee>

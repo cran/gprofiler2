@@ -2,7 +2,7 @@
 % Please edit documentation in R/gprofiler2.R
 \name{random_query}
 \alias{random_query}
-\title{Generate a random gene list.}
+\title{Generate a random gene list for testing.}
 \usage{
 random_query(organism = "hsapiens")
 }

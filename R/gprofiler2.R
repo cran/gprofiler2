@@ -6,6 +6,9 @@ gp_globals$version =
     error = function(e) { return("unknown_version") }
   );
 
+# set global variables
+utils::globalVariables(c("incoming", "n_converted", "n_result"))
+
 # Set SSL version to TLSv1_2 with fallback to TLSv1_1
 # CURL_SSLVERSION_SSLv3 is not used due to the SSLv3 vulnerability <https://access.redhat.com/articles/1232123>
 # CURL_SSLVERSION_TLSv1_3 is not widespread enough to have a built-in LibreSSL support yet.
@@ -14,7 +17,8 @@ gp_globals$CURL_SSLVERSION_TLSv1_1 <- 5L # <https://github.com/curl/curl/blob/ma
 gp_globals$CURL_SSLVERSION_TLSv1_2 <- 6L # <https://github.com/curl/curl/blob/master/include/curl/curl.h#L1926>
 
 gp_globals$rcurl_opts =
-  RCurl::curlOptions(useragent = paste("gprofiler2/", gp_globals$version, sep=""), sslversion = gp_globals$CURL_SSLVERSION_TLSv1_2)
+  RCurl::curlOptions(useragent = paste("gprofiler2/", gp_globals$version, sep=""),
+                     sslversion = gp_globals$CURL_SSLVERSION_TLSv1_2)
 gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 
 
@@ -32,7 +36,7 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #'  used to get GSEA style p-values.
 #' @param multi_query in case of multiple gene lists, returns comparison table of these lists.
 #' If enabled, the result data frame has columns named 'p_values', 'query_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.
-#' To get the results in a long format set 'multi_query' to FALSE and just input query list of multiple gene vectors.
+#' Set 'multi_query' to FALSE and simply input query as list of multiple gene vectors to get the results in a long format.
 #' @param significant whether all or only statistically significant results should
 #'  be returned.
 #' @param exclude_iea exclude GO electronic annotations (IEA).
@@ -45,7 +49,7 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #' @param correction_method the algorithm used for multiple testing correction, one of "gSCS" (synonyms: "analytical", "g_SCS"), "fdr" (synonyms: "false_discovery_rate"), "bonferroni".
 #' @param domain_scope how to define statistical domain, one of "annotated", "known", "custom" or "custom_annotated".
 #' @param custom_bg vector of gene names to use as a statistical background. If given, the domain_scope is by default set to "custom", if domain_scope is set to "custom_annotated", then this is used instead.
-#' @param numeric_ns namespace to use for fully numeric IDs.
+#' @param numeric_ns namespace to use for fully numeric IDs (\href{https://biit.cs.ut.ee/gprofiler/page/namespaces-list}{list of available namespaces}).
 #' @param sources a vector of data sources to use. Currently, these include
 #'  GO (GO:BP, GO:MF, GO:CC to select a particular GO branch), KEGG, REAC, TF,
 #'  MIRNA, CORUM, HP, HPA, WP. Please see the g:GOSt web tool for the comprehensive
@@ -58,7 +62,7 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #'  If 'evcodes' is set, the return value includes columns 'evidence_codes' and 'intersection'.
 #'  The latter conveys info about the intersecting genes between the corresponding query and term.
 #'
-#'  The result fields are further described in \url{https://biit.cs.ut.ee/gprofiler_beta/page/apis#gost_query_results}
+#'  The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
 #'
 #'  If 'as_short_link' is set to TRUE, then the result is a character short-link to see and share corresponding results via the g:Profiler web tool.
 #' @author  Liis Kolberg <liis.kolberg@@ut.ee>, Uku Raudvere <uku.raudvere@@ut.ee>
@@ -87,7 +91,7 @@ gost <- function(query,
 
   # Query
 
-  if (is.null(query)) {
+  if (is.null(query) | all(is.na(query))) {
     stop("Missing query")
   } else if (is.list(query)) {
     if (is.data.frame(query)){
@@ -100,6 +104,7 @@ gost <- function(query,
       names(query) = qnames
     }
     query = lapply(query, function(x) x[!is.na(x)])
+    # remove NA/NULL elements from list
   }
   else{
     query = query[!is.na(query)]
@@ -108,7 +113,6 @@ gost <- function(query,
   ## evaluate choices
   correction_method <- match.arg(correction_method)
   domain_scope <- match.arg(domain_scope)
-
 
   if (startsWith(organism, "gp__")){
     message("Detected custom GMT source request")
@@ -202,9 +206,9 @@ gost <- function(query,
   headers <-
     list("Accept" = "application/json",
          "Content-Type" = "application/json",
-         "charset" = "UTF-8")
-
-  oldw <- getOption("warn")
+         "charset" = "UTF-8",
+          "Expect" = "")
+oldw <- getOption("warn")
   options(warn = -1)
   h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
   h2 = RCurl::getCurlHandle() # Get info about the request
@@ -388,9 +392,12 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
   start <- 1
   starts[1] <- start
 
-  for(idx in 2:length(widthscale)){
-    starts[idx] <- starts[idx - 1] + space + widthscale[idx - 1]
+  if(!length(widthscale) < 2) {
+    for(idx in 2:length(widthscale)){
+      starts[idx] <- starts[idx - 1] + space + widthscale[idx - 1]
+    }
   }
+
   names(starts) <- names(widthscale)
 
   # Make sure that all the sources have colors
@@ -542,7 +549,7 @@ mapViridis <- function(values, domain_min = 0, domain_max = 50, n = 256){
 #' @examples
 #'  gostres <- gost(c("Klf4", "Pax5", "Sox2", "Nanog"), organism = "mmusculus")
 #'  p <- gostplot(gostres, interactive = FALSE)
-#'  publish_gostplot(p, highlight_terms = c("GO:0001010", "WP:WP1763"))
+#'  publish_gostplot(p, highlight_terms = c("GO:0001010", "REAC:R-MMU-8939245"))
 #' @export
 publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width = NA, height = NA){
   # check that it is a static plot
@@ -579,40 +586,15 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width =
       ggplot2::geom_text(data = subdf, size = 4, colour = "black", fontface = "bold", ggplot2::aes(label = as.character(id)), hjust = -1.2, vjust = -0.05)
 
     # add table
-    showdf <- subdf[,c("id", "source", "term_id", "term_name", "p_value", "query")]
-    showdf$p_value <- formatC(showdf$p_value, format = "e", digits = 3)
-    showdf <- tidyr::spread(showdf, query, p_value)
+    tb <- publish_gosttable(data.frame(subdf), highlight_terms = highlight_terms, use_colors = TRUE, show_columns = c("source", "term_name", "term_size"), filename = NULL, ggplot = FALSE)
 
-    idx <- 5:ncol(showdf)
-    colours <- matrix("white", nrow(showdf), ncol(showdf))
-    cols <- sapply(showdf[,idx], function(x) mapViridis(-log10(as.numeric(x))))
-    colours[,idx] <- cols
-
-    fontcolours <- matrix("black", nrow(showdf), ncol(showdf))
-    fontcolours[,idx] <- "white"
-
-    fontfaces <- matrix("plain", nrow(showdf), ncol(showdf))
-    fontfaces[,idx] <- "bold"
-
-    showdf[is.na(showdf)] <- ""
-    th <- gridExtra::ttheme_default(base_size = 10,
-                                    core=list(
-                                      padding.h = grid::unit(c(3,3), "mm"),
-                                      padding.v = grid::unit(c(2,2), "mm"),
-                                      bg_params = list(fill = colours, col="black", lwd = 0.5),
-                                      fg_params=list(hjust = 0, x = 0.01, col=fontcolours, fontface=fontfaces)),
-                                    colhead=list(bg_params = list(fill = "gray99", lwd = 0.5, col = "black"),
-                                                 fg_params=list(col="gray39", fontface="bold")),
-                                    rowhead=list(fg_params=list(col="black", fontface="bold")))
-    tb <- gridExtra::tableGrob(showdf, theme = th, rows = NULL)
     h <- grid::unit.c(grid::unit(1, "null"), sum(tb$heights) + grid::unit(3, "mm"))
-    #w <- grid::unit.c(sum(tb$widths))
     w <- grid::unit.c(grid::unit(1, "null"))
-    tg <- gridExtra::grid.arrange(p, tb, ncol = 1, heights = h, widths = w, newpage = TRUE, bottom = grid::textGrob("g:Profiler (biit.cs.ut.ee/gprofiler)", x = 0.95, hjust = 1, gp = grid::gpar(fontsize=10, font=8, col = "cornflowerblue")))
+
+    tg <- gridExtra::grid.arrange(p, tb, ncol = 1, heights = h, widths = w, newpage = TRUE)
+
     # convert grob to ggplot object
     p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
-    #width = grid::convertWidth(sum(tg$widths), "in", TRUE) + 0.1
-    #height = grid::convertHeight(sum(tg$heights), "in", TRUE) + 10.2
    }
 
   if (is.null(filename)){
@@ -653,13 +635,14 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width =
 #' @param use_colors if enabled, the p-values are highlighted in the viridis colorscale just as in g:Profiler, otherwise the table has no background colors.
 #' @param show_columns names of additional columns to show besides term_id and p_value. By default the output table shows additional columns named "source", "term_name", "term_size", "intersection_size"
 #' @param filename file name to create on disk and save the annotated plot. Filename extension should be from c("png", "pdf", "jpeg", "tiff", "bmp").
+#' @param ggplot if FALSE, then the function returns a gtable object.
 #' @return The output is a ggplot object.
 #' @author Liis Kolberg <liis.kolberg@@ut.ee>
 #' @examples
 #'  gostres <- gost(c("Klf4", "Pax5", "Sox2", "Nanog"), organism = "mmusculus")
-#'  publish_gosttable(gostres, highlight_terms = c("GO:0001010", "WP:WP1763"))
+#'  publish_gosttable(gostres, highlight_terms = c("GO:0001010", "REAC:R-MMU-8939245"))
 #' @export
-publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE, show_columns = c("source", "term_name", "term_size", "intersection_size"), filename = NULL){
+publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE, show_columns = c("source", "term_name", "term_size", "intersection_size"), filename = NULL, ggplot = TRUE){
   # gostres is the GOSt response list (contains results and metadata) or a data frame
   term_id <- p_values <- query <- p_value <- NULL
 
@@ -730,50 +713,68 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
     # spread the data frame to correct form
     subdf <- tidyr::unnest(data = subdf, cols = c(spread_col, query))
     subdf <- dplyr::rename(subdf, p_value = p_values)
-    subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
+    subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 1)
     showdf <- subdf[,stats::na.omit(match(c(colnames, "query"), names(subdf)))]
-    #showdf <- subdf[,stats::na.omit(match(c(colnames, "query", spread_col), names(subdf)))]
-    showdf <- tidyr::pivot_wider(showdf, names_from = query, values_from = c(p_value, spread_col[spread_col!="p_values"]))
+    showdf <- tidyr::pivot_wider(showdf, names_from = query, values_from = c(p_value, spread_col[spread_col!="p_values"]), names_prefix = ifelse(length(spread_col) == 1,"p_value ", ""))
+
   } else {
     if ("query" %in% names(subdf) & length(unique(subdf$query)) > 1){
-      subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
+      subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 1)
       showdf <- subdf[,stats::na.omit(match(c(colnames, "query"), names(subdf)))]
       spread_col <- c("p_value", "intersection_size", "query_size")
       spread_col <- intersect(colnames(showdf), spread_col)
-      showdf <- tidyr::pivot_wider(showdf, names_from = query, values_from = spread_col, names_prefix = ifelse(length(spread_col) == 1,"p_value_", ""))
+      spread_col <- intersect(show_columns, spread_col)
+      showdf <- tidyr::pivot_wider(showdf, names_from = query, values_from = spread_col, names_prefix = ifelse(length(spread_col) == 1,"p_value ", ""))
 
     } else {
-      subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 3)
+      subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 1)
       showdf <- subdf[,stats::na.omit(match(colnames, names(subdf)))]
     }
   }
-  # find the column to color
+  # find the columns to color
   idx <- which(grepl(pattern = "p_value", x = names(showdf)))
 
   # Prepare table
-  colours <- matrix("white", nrow(showdf), ncol(showdf))
   if (use_colors){
-    cols <- sapply(showdf[,idx], function(x) mapViridis(-log10(as.numeric(x))))
+    order_of_cl = names(showdf)[idx]
+    # add empty columns next to pvalue columns that show the color scale (to the right)
+    showdf[paste0(1, order_of_cl)] <- NA
+    # update the order with extra pvalue color code column
+    order_of_cl2 = c(rbind(paste0(1, order_of_cl), order_of_cl))
+    showdf = showdf[,c(names(showdf)[1:min(idx)-1], order_of_cl2)]
+    colours <- matrix("white", nrow(showdf), ncol(showdf))
+    # add colors to empty columns
+    temp_df = showdf[, order_of_cl2, drop = F]
+    temp_cols <- sapply(temp_df, function(x) ifelse(!is.na(x), mapViridis(-log10(as.numeric(x))), "white"))
+    if (nrow(temp_df) == 1){
+      temp_cols = data.frame(t(temp_cols), check.names = F, stringsAsFactors = F)
+    }
+    # switch values
+    temp_cols[,seq(1,ncol(temp_cols),2)] = temp_cols[,seq(2,ncol(temp_cols),2)]
+    temp_cols[,seq(2,ncol(temp_cols),2)] = "white"
+    colours[,which(names(showdf) %in% order_of_cl2)] <- temp_cols
+    if (nrow(temp_df) == 1){
+      colours = unlist(colours)
+    }
+    # remove column names from color scale column
+    showdf[,startsWith(names(showdf), "1")] = ""
+    # rename the column
+    names(showdf)[startsWith(names(showdf), "1")] = ""
+
   } else {
-    cols <- sapply(showdf[,idx], function(x) "white")
+    colours <- matrix("white", nrow(showdf), ncol(showdf))
   }
 
-  colours[,idx] <- cols
-
   fontcolours <- matrix("black", nrow(showdf), ncol(showdf))
-  fontcolours[,idx] <- ifelse(use_colors, "white", "black")
-
   fontfaces <- matrix("plain", nrow(showdf), ncol(showdf))
-  fontfaces[,idx] <- "bold"
 
-  showdf[is.na(showdf)] <- ""
   th <- gridExtra::ttheme_default(base_size = 10,
                                   padding = grid::unit(c(4, 4), "mm"),
                                   core=list(
                                     padding.h = grid::unit(c(15,15), "mm"),
                                     padding.v = grid::unit(c(15,15), "mm"),
                                     bg_params = list(fill = colours, col="black", lwd = 0.5),
-                                    fg_params=list(hjust = 0, x = 0.01, col=fontcolours, fontface=fontfaces)),
+                                    fg_params=list(hjust = 0, x = 0.02, col=fontcolours, fontface=fontfaces)),
                                   colhead=list(bg_params = list(fill = "gray99", lwd = 0.5, col = "black"),
                                                fg_params=list(col="gray39", fontface="bold")),
                                   rowhead=list(fg_params=list(col="black", fontface="bold")))
@@ -781,12 +782,21 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
   tb <- gridExtra::tableGrob(showdf, theme = th, rows = NULL)
   h <- grid::unit.c(sum(tb$heights))
   w <- grid::unit.c(sum(tb$widths))
-  tg <- gridExtra::grid.arrange(tb, ncol = 1, widths = w, heights = h, newpage = TRUE, bottom = grid::textGrob("g:Profiler (biit.cs.ut.ee/gprofiler)", x = 0.95, hjust = 1, gp = grid::gpar(fontsize=10, font=8, col = "cornflowerblue")))
+  tg <- gridExtra::arrangeGrob(tb, ncol = 1, widths = w, heights = h, bottom = grid::textGrob("g:Profiler (biit.cs.ut.ee/gprofiler)", x = 0.95, hjust = 1, gp = grid::gpar(fontsize=10, font=8, col = "cornflowerblue")))
 
+  if(ggplot){
+    p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
+  }
   p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
 
   if (is.null(filename)){
-    return(p)
+    if (ggplot){
+      p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
+      return(p)
+    } else {
+      return(tg)
+    }
+
   } else{
     imgtype <- strsplit(basename(filename), split="\\.")[[1]][-1]
 
@@ -797,6 +807,7 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
     if (tolower(imgtype) %in% c("png", "pdf", "jpeg", "tiff", "bmp")){
       width = grid::convertWidth(sum(tg$widths), "in", TRUE) + 0.2
       height = grid::convertHeight(sum(tg$heights), "in", TRUE) + 0.2
+      p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
       ggplot2::ggsave(filename = filename, plot = p, height = height, width = width)
       message("The image is saved to ", filename)
       return(p)
@@ -850,9 +861,9 @@ upload_GMT_file <- function(gmtfile){
     headers <-
       list("Accept" = "application/json",
            "Content-Type" = "application/json",
-           "charset" = "UTF-8")
-
-    oldw <- getOption("warn")
+           "charset" = "UTF-8",
+           "Expect" = "")
+oldw <- getOption("warn")
     options(warn = -1)
     h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
     h2 = RCurl::getCurlHandle() # Get info about the request
@@ -909,7 +920,7 @@ upload_GMT_file <- function(gmtfile){
 }
 
 
-#' Generate a random gene list.
+#' Generate a random gene list for testing.
 #'
 #' This function returns a vector of randomly selected genes from the selected organism.
 #'
@@ -930,9 +941,9 @@ random_query <- function(organism = "hsapiens"){
 
   headers <- list("Accept" = "application/json",
                   "Content-Type" = "application/json",
-                  "charset" = "UTF-8")
-
-  oldw <- getOption("warn")
+                  "charset" = "UTF-8",
+                  "Expect" = "")
+oldw <- getOption("warn")
   options(warn = -1)
   h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
   h2 = RCurl::getCurlHandle() # Get info about the request
@@ -972,12 +983,15 @@ random_query <- function(organism = "hsapiens"){
 #' concatenating the first letter of the name and the family name. Example: human
 #' - 'hsapiens', mouse - 'mmusculus'.
 #' @param target target namespace.
-#' @param numeric_ns namespace to use for fully numeric IDs.
+#' @param numeric_ns namespace to use for fully numeric IDs (\href{https://biit.cs.ut.ee/gprofiler/page/namespaces-list}{list of available namespaces}).
 #' @param mthreshold maximum number of results per initial alias to show. Shows all by default.
 #' @param filter_na logical indicating whether to filter out results without a
 #' corresponding target.
 #' @return The output is a data.frame which is a table closely corresponding to the
 #' web interface output.
+#'
+#' The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
+#'
 #' @author  Liis Kolberg <liis.kolberg@@ut.ee>, Uku Raudvere <uku.raudvere@@ut.ee>
 #' @examples
 #' gconvert(c("POU5F1", "SOX2", "NANOG"), organism = "hsapiens", target="AFFY_HG_U133_PLUS_2")
@@ -1017,7 +1031,9 @@ gconvert = function(
   headers <-
     list("Accept" = "application/json",
          "Content-Type" = "application/json",
-         "charset" = "UTF-8")
+         "charset" = "UTF-8",
+         "Expect" = "")
+
 
   oldw <- getOption("warn")
   options(warn = -1)
@@ -1056,21 +1072,35 @@ gconvert = function(
   col_names <- c("n_incoming", "incoming", "n_converted", "converted", "name", "description", "namespaces")
   df = df[,col_names]
 
+  # filter empty results
+  if (filter_na){
+    df <- df[df$converted != "None",]
+  }
+  if (nrow(df) == 0){
+    message("No results to show\n", "Please make sure that the organism or namespace is correct")
+    return(NULL)
+  }
+  # filter max number of results per input
+  if (mthreshold < Inf){
+    df <- df %>% dplyr::group_by(incoming) %>% dplyr::top_n(-mthreshold, n_converted) %>% data.frame()
+  }
+
   # rename columns
   colnames(df) <- c("input_number", "input", "target_number", "target", "name", "description", "namespace")
   df$target_number <- paste(df$input_number, df$target_number, sep=".")
 
-  df = plyr::dlply(df, "input", function(x) {
-    if (filter_na)
-      x = x[x$target != "None",]
-    if (nrow(x) == 0)
-      return(NULL)
-    if (nrow(x) > mthreshold)
-      x = lapply(x, function(y) { as.character(y)[1:mthreshold] })
-    return(x)
-  })
+  #df = plyr::dlply(df, "input", function(x) {
+  #  if (filter_na)
+  #    x = x[x$target != "None",]
+  #  if (nrow(x) == 0)
+  #    return(NULL)
+  #  if (nrow(x) > mthreshold)
+  #    x = lapply(x, function(y) { as.character(y)[1:mthreshold] })
+  #  return(x)
+ # })
 
-  df <- plyr::ldply(df, function(x) data.frame(x, stringsAsFactors = F))
+  #df <- plyr::ldply(df, function(x) data.frame(x, stringsAsFactors = F))
+
   df <- df[order(df$input_number, df$target_number),]
   row.names(df) <- NULL
   return(df)
@@ -1088,12 +1118,15 @@ gconvert = function(
 #' @param target_organism name of the target organism. Organism names are constructed by concatenating
 #' the first letter of the name and the family name. Example: human - 'hsapiens',
 #' mouse - 'mmusculus'.
-#' @param numeric_ns namespace to use for fully numeric IDs.
+#' @param numeric_ns namespace to use for fully numeric IDs (\href{https://biit.cs.ut.ee/gprofiler/page/namespaces-list}{list of available namespaces}).
 #' @param mthreshold maximum number of ortholog names per gene to show.
 #' @param filter_na logical indicating whether to filter out results without a
 #' corresponding target name.
 #' @return The output is a data.frame which is a table closely corresponding to the
 #' web interface output.
+#'
+#' The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
+#'
 #' @author  Liis Kolberg <liis.kolberg@@ut.ee>, Uku Raudvere <uku.raudvere@@ut.ee>
 #' @examples
 #' gorth(c("Klf4","Pax5","Sox2","Nanog"), source_organism="mmusculus", target_organism="hsapiens")
@@ -1134,7 +1167,9 @@ gorth <- function(
   headers <-
     list("Accept" = "application/json",
          "Content-Type" = "application/json",
-         "charset" = "UTF-8")
+         "charset" = "UTF-8",
+         "Expect" = "")
+
 
   oldw <- getOption("warn")
   options(warn = -1)
@@ -1171,23 +1206,37 @@ gorth <- function(
   }
 
   df$ensg_number = paste(df$n_incoming, df$n_converted, df$n_result, sep = ".")
+
+  # filter empty results
+  if (filter_na){
+    df <- df[df$name != "N/A",]
+  }
+  if (nrow(df) == 0){
+    message("No results to show\n", "Please make sure that the organisms or namespaces are correct")
+    return(NULL)
+  }
+  # filter max number of results per input
+  if (mthreshold < Inf){
+    df <- df %>% dplyr::group_by(incoming) %>% dplyr::top_n(-mthreshold, n_result) %>% data.frame()
+  }
+
   col_names = c("n_incoming", "incoming", "converted", "ensg_number", "name", "ortholog_ensg", "description")
   df <- df[,col_names]
 
   # rename columns
   colnames(df) <- c("input_number", "input", "input_ensg", "ensg_number", "ortholog_name", "ortholog_ensg", "description")
 
-  df = plyr::dlply(df, "input", function(x) {
-    if (filter_na)
-      x = x[x$ortholog_name != "None",]
-    if (nrow(x) == 0)
-      return(NULL)
-    if (nrow(x) > mthreshold)
-      x = lapply(x, function(y) { as.character(y)[1:mthreshold] })
-    return(x)
-  })
-
-  df <- plyr::ldply(df, function(x) data.frame(x, stringsAsFactors = F))
+  # df = plyr::dlply(df, "input", function(x) {
+  #   if (filter_na)
+  #     x = x[x$ortholog_name != "None",]
+  #   if (nrow(x) == 0)
+  #     return(NULL)
+  #   if (nrow(x) > mthreshold)
+  #     x = lapply(x, function(y) { as.character(y)[1:mthreshold] })
+  #   return(x)
+  # })
+  #
+  # df <- plyr::ldply(df, function(x) data.frame(x, stringsAsFactors = F))
 
   df <- df[order(df$input_number, df$ensg_number),]
   row.names(df) <- NULL
@@ -1195,16 +1244,19 @@ gorth <- function(
 }
 
 
-#' Convert SNP rs numbers to genes.
+#' Convert SNP rs identifiers to genes.
 #'
 #' Interface to the g:Profiler tool g:SNPense (\url{https://biit.cs.ut.ee/gprofiler/snpense}) that maps SNP rs identifiers to chromosome positions, genes and variant effects.
-#' Available only for human SNPs.
+#' Available only for human variants.
 #'
 #' @param query vector of SNP IDs to be translated (should start with prefix 'rs').
 #' @param filter_na logical indicating whether to filter out results without a
 #' corresponding target name.
 #' @return The output is a data.frame which is a table closely corresponding to the
 #' web interface output. Columns 'ensgs' and 'gene_names' can contain list of multiple values.
+#'
+#' The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
+#'
 #' @author  Liis Kolberg <liis.kolberg@@ut.ee>, Uku Raudvere <uku.raudvere@@ut.ee>
 #' @examples
 #' gsnpense(c("rs11734132", "rs7961894", "rs4305276", "rs17396340", "rs3184504"))
@@ -1233,11 +1285,12 @@ gsnpense <- function(
   null = "null")
 
   # Headers
-
   headers <-
     list("Accept" = "application/json",
          "Content-Type" = "application/json",
-         "charset" = "UTF-8")
+         "charset" = "UTF-8",
+         "Expect" = "")
+
 
   oldw <- getOption("warn")
   options(warn = -1)
@@ -1281,6 +1334,10 @@ gsnpense <- function(
     df <- df[!is.na(df$chromosome),]
   }
   row.names(df) <- NULL
+  # spread the data frame to longer form
+  df <- tidyr::unchop(df, c("ensgs", "gene_names"))
+  # unnest variants column
+  df <- do.call(data.frame, df)
   return(df)
 }
 

@@ -4,10 +4,14 @@
 \alias{gostplot}
 \title{Manhattan plot of functional enrichment results.}
 \usage{
-gostplot(gostres, capped = TRUE, interactive = TRUE, pal = c(`GO:MF`
-  = "#dc3912", `GO:BP` = "#ff9900", `GO:CC` = "#109618", KEGG = "#dd4477",
-  REAC = "#3366cc", WP = "#0099c6", TF = "#5574a6", MIRNA = "#22aa99", HPA
-  = "#6633cc", CORUM = "#66aa00", HP = "#990099"))
+gostplot(
+  gostres,
+  capped = TRUE,
+  interactive = TRUE,
+  pal = c(`GO:MF` = "#dc3912", `GO:BP` = "#ff9900", `GO:CC` = "#109618", KEGG =
+    "#dd4477", REAC = "#3366cc", WP = "#0099c6", TF = "#5574a6", MIRNA = "#22aa99", HPA =
+    "#6633cc", CORUM = "#66aa00", HP = "#990099")
+)
 }
 \arguments{
 \item{gostres}{named list from gost() function (with names 'result' and 'meta')}
