@@ -14,7 +14,7 @@ gorth(
 )
 }
 \arguments{
-\item{query}{vector of gene IDs to be translated.}
+\item{query}{character vector of gene IDs to be translated.}
 
 \item{source_organism}{name of the source organism. Organism names are constructed by concatenating
 the first letter of the name and the family name. Example: human - 'hsapiens',

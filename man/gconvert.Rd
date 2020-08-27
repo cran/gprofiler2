@@ -14,7 +14,7 @@ gconvert(
 )
 }
 \arguments{
-\item{query}{vector that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.}
+\item{query}{character vector that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.}
 
 \item{organism}{organism name. Organism names are constructed by
 concatenating the first letter of the name and the family name. Example: human

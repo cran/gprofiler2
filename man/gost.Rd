@@ -24,7 +24,7 @@ gost(
 )
 }
 \arguments{
-\item{query}{vector, or a (named) list of vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.}
+\item{query}{character vector, or a (named) list of character vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.}
 
 \item{organism}{organism name. Organism names are constructed by concatenating the first letter of the name and the
 family name. Example: human - 'hsapiens', mouse - 'mmusculus'.}
@@ -33,8 +33,8 @@ family name. Example: human - 'hsapiens', mouse - 'mmusculus'.}
 used to get GSEA style p-values.}
 
 \item{multi_query}{in case of multiple gene lists, returns comparison table of these lists.
-If enabled, the result data frame has columns named 'p_values', 'query_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.
-Set 'multi_query' to FALSE and simply input query as list of multiple gene vectors to get the results in a long format.}
+If enabled, the result data frame has columns named 'p_values', 'gconvert_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.
+Set 'multi_gconvert' to FALSE and simply input query as list of multiple gene vectors to get the results in a long format.}
 
 \item{significant}{whether all or only statistically significant results should
 be returned.}

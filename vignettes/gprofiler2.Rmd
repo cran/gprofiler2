@@ -318,7 +318,7 @@ In addition to the available GO, KEGG, etc data sources, users can upload their 
 `upload_GMT_file` enables to upload GMT file(s). The input `gmtfile` is the filename of the GMT file together with the path to the file. The input can also be several GMT files compressed into a ZIP file. 
 The file extension should be **.gmt** or **.zip** in case of multiple GMT files. The uploaded filename is used to define the source name in the enrichment results.
 
-For example, using the BioCarta gene sets downloaded from the [MSigDB Collections] (http://software.broadinstitute.org/gsea/msigdb/collections.jsp#C7)
+For example, using the BioCarta gene sets downloaded from the [MSigDB Collections](http://software.broadinstitute.org/gsea/msigdb/collections.jsp#C7)
 
 ```{r eval = F}
 download.file(url = "http://software.broadinstitute.org/gsea/resources/msigdb/7.0/c2.cp.biocarta.v7.0.symbols.gmt", destfile = "extdata/biocarta.gmt")

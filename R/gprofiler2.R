@@ -29,14 +29,14 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #' If 'multi_query' is selected, the result is a data frame for comparing multiple input lists,
 #' just as in the web tool.
 #'
-#' @param query vector, or a (named) list of vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.
+#' @param query character vector, or a (named) list of character vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.
 #' @param organism organism name. Organism names are constructed by concatenating the first letter of the name and the
 #' family name. Example: human - 'hsapiens', mouse - 'mmusculus'.
 #' @param ordered_query in case input gene lists are ranked this option may be
 #'  used to get GSEA style p-values.
 #' @param multi_query in case of multiple gene lists, returns comparison table of these lists.
-#' If enabled, the result data frame has columns named 'p_values', 'query_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.
-#' Set 'multi_query' to FALSE and simply input query as list of multiple gene vectors to get the results in a long format.
+#' If enabled, the result data frame has columns named 'p_values', 'gconvert_sizes', 'intersection_sizes' with vectors showing values in the order of input queries.
+#' Set 'multi_gconvert' to FALSE and simply input query as list of multiple gene vectors to get the results in a long format.
 #' @param significant whether all or only statistically significant results should
 #'  be returned.
 #' @param exclude_iea exclude GO electronic annotations (IEA).
@@ -103,11 +103,17 @@ gost <- function(query,
       qnames = paste("query", seq(1, length(query)), sep = "_")
       names(query) = qnames
     }
-    query = lapply(query, function(x) x[!is.na(x)])
     # remove NA/NULL elements from list
+    query = lapply(query, function(x) x[!is.na(x)])
+    # remove empty queries from list
+    query = query[lapply(query, length) > 0]
+    # handle potential numeric values in the input
+    query = lapply(query, function(x) as.character(x))
   }
   else{
     query = query[!is.na(query)]
+    # handle potential numeric values in the input
+    query = as.character(query)
   }
 
   ## evaluate choices
@@ -493,7 +499,9 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
     ggplot2::scale_y_continuous(expand = c(0, 0), limits = c(ymin, ymax),
                                 labels = ticklabels,
                                 breaks = tickvals) +
-    ggplot2::scale_x_continuous(expand = c(0, 0), limits = c(0, 210), breaks = (xScale(starts) + xScale(starts + widthscale))/2, labels = names(widthscale))
+    ggplot2::scale_x_continuous(expand = c(0, 0), limits = c(0, 210),
+                                breaks = (xScale(starts) + xScale(starts + widthscale))/2,
+                                labels = names(widthscale))
 
   for (s in names(widthscale)){
     xstart = xScale(starts[s])
@@ -579,6 +587,7 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width =
       return(p)
     }
 
+    highlight_terms <- unique(highlight_terms)
     subdf$id <- match(subdf$term_id, highlight_terms)
 
     p <- p + ggplot2::geom_point(data = subdf, ggplot2::aes(x = order, y = logpval, size = term_size_scaled), pch=21, colour = "black")
@@ -586,7 +595,9 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width =
       ggplot2::geom_text(data = subdf, size = 4, colour = "black", fontface = "bold", ggplot2::aes(label = as.character(id)), hjust = -1.2, vjust = -0.05)
 
     # add table
-    tb <- publish_gosttable(data.frame(subdf), highlight_terms = highlight_terms, use_colors = TRUE, show_columns = c("source", "term_name", "term_size"), filename = NULL, ggplot = FALSE)
+    pseudo_gostres <- list("result" = data.frame(subdf), "meta" = list("query_metadata"= list("queries" = sapply(unique(subdf$query), function(x) NULL))))
+    #tb <- publish_gosttable(data.frame(subdf), highlight_terms = highlight_terms, use_colors = TRUE, show_columns = c("source", "term_name", "term_size"), filename = NULL, ggplot = FALSE)
+    tb <- publish_gosttable(pseudo_gostres, highlight_terms = highlight_terms, use_colors = TRUE, show_columns = c("source", "term_name", "term_size"), filename = NULL, ggplot = FALSE)
 
     h <- grid::unit.c(grid::unit(1, "null"), sum(tb$heights) + grid::unit(3, "mm"))
     w <- grid::unit.c(grid::unit(1, "null"))
@@ -681,7 +692,11 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
     stop("None of the term IDs in the 'highlight_terms' were found from the results.")
   }
 
+  highlight_terms <- unique(highlight_terms)
   subdf$id <- match(subdf$term_id, highlight_terms)
+
+  # order by id column
+  subdf = subdf[order(subdf$id),]
 
   # default column names to show
   show_columns <- unique(append(show_columns, c("id", "term_id", "p_value")))
@@ -725,6 +740,18 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
       spread_col <- intersect(colnames(showdf), spread_col)
       spread_col <- intersect(show_columns, spread_col)
       showdf <- tidyr::pivot_wider(showdf, names_from = query, values_from = spread_col, names_prefix = ifelse(length(spread_col) == 1,"p_value ", ""))
+      # order columns by query
+      if ('meta' %in% names(gostres)){
+        input_order <- names(gostres$meta$query_metadata$queries)
+        if (length(spread_col) == 1){
+          input_order <- paste("p_value", input_order)
+        } else{
+          input_order <- unlist(lapply(spread_col, function(x) paste(x, input_order, sep = "_")))
+        }
+
+        showdf <- showdf[c(names(showdf)[stats::na.omit(match(colnames, names(showdf)))], input_order) ]
+
+      }
 
     } else {
       subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 1)
@@ -846,7 +873,16 @@ upload_GMT_file <- function(gmtfile){
   if (endsWith(gmtfile, ".gmt")){
     # GMT file
     gmturl = paste0(file.path(gp_globals$base_url, "api", "gost", "custom"), "/")
-    gmtdata <- paste(readLines(gmtfile, skipNul = TRUE), collapse = "\n")
+    # read in file and remove duplicated rows
+    gmtlist = unique(readLines(gmtfile, skipNul = TRUE))
+    # check for duplicated term_ids
+    term_ids = unlist(lapply(gmtlist, function(x) strsplit(x, "\t")[[1]][1]))
+    if (sum(duplicated(term_ids)) > 0){
+      duplicates = paste(term_ids[duplicated(term_ids)], collapse = ", ")
+      stop("Your GMT file includes duplicated identifiers: ", duplicates, ".\nPlease remove duplicated identifiers and try to upload again.")
+    }
+
+    gmtdata <- paste(gmtlist, collapse = "\n")
 
     body <- jsonlite::toJSON((
       list(
@@ -863,7 +899,7 @@ upload_GMT_file <- function(gmtfile){
            "Content-Type" = "application/json",
            "charset" = "UTF-8",
            "Expect" = "")
-oldw <- getOption("warn")
+    oldw <- getOption("warn")
     options(warn = -1)
     h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
     h2 = RCurl::getCurlHandle() # Get info about the request
@@ -978,7 +1014,7 @@ oldw <- getOption("warn")
 #' The input is flexible: it accepts a mixed list of IDs and recognises their types automatically.
 #' It can also serve as a service to get all genes belonging to a particular functional category.
 #'
-#' @param query vector that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.
+#' @param query character vector that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.
 #' @param organism organism name. Organism names are constructed by
 #' concatenating the first letter of the name and the family name. Example: human
 #' - 'hsapiens', mouse - 'mmusculus'.
@@ -1011,8 +1047,10 @@ gconvert = function(
   }
 
   if (is.list(query)) {
-    stop("Parameter 'query' must be a vector of values")
+    stop("Parameter 'query' must be a vector")
   }
+  # handle potential numeric values in the input
+  query = as.character(query)
 
   body <- jsonlite::toJSON((
     list(
@@ -1111,7 +1149,7 @@ gconvert = function(
 #'
 #' Interface to the g:Profiler tool g:Orth (\url{https://biit.cs.ut.ee/gprofiler/orth}) that, given a target organism, retrieves the genes of the target organism that are similar in sequence to the source organism genes in the input.
 #'
-#' @param query vector of gene IDs to be translated.
+#' @param query character vector of gene IDs to be translated.
 #' @param source_organism name of the source organism. Organism names are constructed by concatenating
 #' the first letter of the name and the family name. Example: human - 'hsapiens',
 #' mouse - 'mmusculus'.
@@ -1147,8 +1185,11 @@ gorth <- function(
   }
 
   if (is.list(query)) {
-    stop("Parameter 'query' should be a vector of values")
+    stop("Parameter 'query' should be a vector")
   }
+
+  # handle potential numeric values in the input
+  query = as.character(query)
 
   body <- jsonlite::toJSON((
     list(
