@@ -23,7 +23,7 @@ gostres <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG000
 names(gostres)
 
 ## -----------------------------------------------------------------------------
-head(gostres$result)
+head(gostres$result, 3)
 
 ## -----------------------------------------------------------------------------
 names(gostres$meta)
@@ -38,7 +38,7 @@ gostres2 <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00
                 numeric_ns = "", sources = NULL)
 
 ## -----------------------------------------------------------------------------
-head(gostres2$result)
+head(gostres2$result, 3)
 
 ## ----eval = FALSE-------------------------------------------------------------
 #  gostres_link <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"),
@@ -52,7 +52,7 @@ multi_gostres1 <- gost(query = list("chromX" = c("X:1000:1000000", "rs17396340",
                        multi_query = FALSE)
 
 ## -----------------------------------------------------------------------------
-head(multi_gostres1$result)
+head(multi_gostres1$result, 3)
 
 ## -----------------------------------------------------------------------------
 multi_gostres2 <- gost(query = list("chromX" = c("X:1000:1000000", "rs17396340",
@@ -62,7 +62,7 @@ multi_gostres2 <- gost(query = list("chromX" = c("X:1000:1000000", "rs17396340",
                        multi_query = TRUE)
 
 ## -----------------------------------------------------------------------------
-head(multi_gostres2$result)
+head(multi_gostres2$result, 3)
 
 ## ----fig.width = 9.5----------------------------------------------------------
 gostplot(gostres, capped = TRUE, interactive = TRUE)
@@ -76,7 +76,7 @@ pp <- publish_gostplot(p, highlight_terms = c("GO:0048013", "REAC:R-HSA-3928663"
                        width = NA, height = NA, filename = NULL )
 
 ## ----fig.width = 9.5, fig.height = 3------------------------------------------
-publish_gosttable(gostres, highlight_terms = gostres$result[c(1:2,10,100:102,120,124,125),],
+publish_gosttable(gostres, highlight_terms = gostres$result[c(1:2,10,120),],
                         use_colors = TRUE, 
                         show_columns = c("source", "term_name", "term_size", "intersection_size"),
                         filename = NULL)
@@ -86,10 +86,13 @@ gostplot(multi_gostres2, capped = TRUE, interactive = TRUE)
 
 ## ----fig.width = 10, fig.height = 2, warning = F------------------------------
 publish_gosttable(multi_gostres1, 
-                         highlight_terms = multi_gostres1$result[c(1, 24, 82, 176, 204, 234),],
+                         highlight_terms = multi_gostres1$result[c(1, 82, 176),],
                         use_colors = TRUE, 
                         show_columns = c("source", "term_name", "term_size"),
                         filename = NULL)
+
+## -----------------------------------------------------------------------------
+get_version_info(organism = "hsapiens")
 
 ## ----eval = F-----------------------------------------------------------------
 #  download.file(url = "http://software.broadinstitute.org/gsea/resources/msigdb/7.0/c2.cp.biocarta.v7.0.symbols.gmt", destfile = "extdata/biocarta.gmt")
@@ -101,7 +104,7 @@ publish_gosttable(multi_gostres1,
 custom_gostres <- gost(query = c("MAPK3",	"PIK3C2G", "HRAS", "PIK3R1", "MAP2K1", 
                                  "RAF1", "PLCG1",	"GNAQ",	"MAPK1", "PRKCB",	"CRK", "BCAR1", "NFKB1"),
                        organism = "gp__TEXF_hZLM_d18")
-head(custom_gostres$result)
+head(custom_gostres$result, 3)
 
 ## -----------------------------------------------------------------------------
 gostres <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
@@ -113,7 +116,7 @@ colnames(gem) <- c("GO.ID", "Description", "p.Val", "Genes")
 gem$FDR <- gem$p.Val
 gem$Phenotype = "+1"
 gem <- gem[,c("GO.ID", "Description", "p.Val", "FDR", "Phenotype", "Genes")]
-head(gem)
+head(gem, 3)
 
 ## ---- eval=F------------------------------------------------------------------
 #  write.table(gem, file = "extdata/gProfiler_gem.txt", sep = "\t", quote = F, row.names = F)
@@ -145,7 +148,7 @@ head(gem)
 #                  sep = "\t", quote = F, row.names = F))
 
 ## -----------------------------------------------------------------------------
-gconvert(query = c("REAC:R-HSA-3928664", "rs17396340", "NLRP1"), organism = "hsapiens", 
+gconvert(query = c("GO:0005030", "rs17396340", "NLRP1"), organism = "hsapiens", 
          target="ENSG", mthreshold = Inf, filter_na = TRUE)
 
 ## -----------------------------------------------------------------------------

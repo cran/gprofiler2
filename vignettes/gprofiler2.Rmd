@@ -1,12 +1,12 @@
 ---
 title: "Gene list functional enrichment analysis and namespace conversion with gprofiler2"
-#rmarkdown::html_vignette
 date: "`r Sys.Date()`"
 output: 
   prettydoc::html_pretty:
     theme: cayman
     highlight: github
     toc: true
+    mathjax: null
 bibliography: extdata/references.bib
 link-citations: yes
 csl: extdata/biomed-central.csl
@@ -41,12 +41,12 @@ knitr::opts_chunk$set(
 
 ## Overview
 
-[gprofiler2](https://CRAN.R-project.org/package=gprofiler2) provides an R interface to the widely used web toolset g:Profiler ([https://biit.cs.ut.ee/gprofiler](https://biit.cs.ut.ee/gprofiler)) @gp. 
+[gprofiler2](https://CRAN.R-project.org/package=gprofiler2) provides an R interface to the widely used web toolset g:Profiler ([https://biit.cs.ut.ee/gprofiler](https://biit.cs.ut.ee/gprofiler/)) @gp. 
 
 The toolset performs functional enrichment analysis and visualization of gene lists, converts gene/protein/SNP identifiers to numerous namespaces, and maps orthologous genes across species. 
-[g:Profiler](https://biit.cs.ut.ee/gprofiler) relies on [Ensembl databases](https://www.ensembl.org/index.html) as the primary data source and follows their release cycle for updates.
+[g:Profiler](https://biit.cs.ut.ee/gprofiler/) relies on [Ensembl databases](https://www.ensembl.org/index.html) as the primary data source and follows their release cycle for updates.
 
-The main tools in [g:Profiler](https://biit.cs.ut.ee/gprofiler) are:
+The main tools in [g:Profiler](https://biit.cs.ut.ee/gprofiler/) are:
 
 * [g:GOSt](https://biit.cs.ut.ee/gprofiler/gost) - functional enrichment analysis of gene lists 
 * [g:Convert](https://biit.cs.ut.ee/gprofiler/convert) - gene/protein/transcript identifier conversion across various namespaces 
@@ -65,7 +65,7 @@ Corresponding functions in the [gprofiler2](https://CRAN.R-project.org/package=g
 
 [gprofiler2](https://CRAN.R-project.org/package=gprofiler2) uses the [publicly available APIs](https://biit.cs.ut.ee/gprofiler/page/apis) of the g:Profiler web tool which ensures that the results from all of the interfaces are consistent.
 
-The package corresponds to the 2019 update of [g:Profiler](https://biit.cs.ut.ee/gprofiler) and provides access for versions *e94_eg41_p11* and higher. The older versions are available from the previous R package [gProfileR](https://CRAN.R-project.org/package=gProfileR).
+The package corresponds to the 2019 update of [g:Profiler](https://biit.cs.ut.ee/gprofiler/) and provides access for versions *e94_eg41_p11* and higher. The older versions are available from the previous R package [gProfileR](https://CRAN.R-project.org/package=gProfileR).
 
 ----
 
@@ -126,7 +126,7 @@ names(gostres)
 ```
 
 ```{r}
-head(gostres$result)
+head(gostres$result, 3)
 ```
 
 The result `data.frame` contains the following columns:
@@ -169,7 +169,7 @@ gostres2 <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00
 ```
 
 ```{r}
-head(gostres2$result)
+head(gostres2$result, 3)
 ```
 
 The result `data.frame` will include additional columns:
@@ -199,7 +199,7 @@ multi_gostres1 <- gost(query = list("chromX" = c("X:1000:1000000", "rs17396340",
 ```
 
 ```{r}
-head(multi_gostres1$result)
+head(multi_gostres1$result, 3)
 ```
 
 The column **"query"** in the result `data.frame` will now contain the corresponding name for the query. If no name is specified, then the query name is defined as the order of query with the prefix "query\_".
@@ -215,7 +215,7 @@ multi_gostres2 <- gost(query = list("chromX" = c("X:1000:1000000", "rs17396340",
 ```
 
 ```{r}
-head(multi_gostres2$result)
+head(multi_gostres2$result, 3)
 ```
 
 The result `data.frame` contains the following columns:
@@ -273,7 +273,7 @@ The `gost` results can also be visualized with a table. The `publish_gosttable` 
 The `highlight_terms` can be a vector of term IDs or a subset of the results. 
 
 ```{r fig.width = 9.5, fig.height = 3}
-publish_gosttable(gostres, highlight_terms = gostres$result[c(1:2,10,100:102,120,124,125),],
+publish_gosttable(gostres, highlight_terms = gostres$result[c(1:2,10,120),],
                         use_colors = TRUE, 
                         show_columns = c("source", "term_name", "term_size", "intersection_size"),
                         filename = NULL)
@@ -291,25 +291,31 @@ Note that if a term is clicked on one of the Manhattan plots, it is also highlig
 
 ```{r fig.width = 10, fig.height = 2, warning = F}
 publish_gosttable(multi_gostres1, 
-                         highlight_terms = multi_gostres1$result[c(1, 24, 82, 176, 204, 234),],
+                         highlight_terms = multi_gostres1$result[c(1, 82, 176),],
                         use_colors = TRUE, 
                         show_columns = c("source", "term_name", "term_size"),
                         filename = NULL)
 ```
 
-### Data sources
+### Data sources and versions
 
 Available data sources and their abbreviations are:
 
 * [Gene Ontology](http://geneontology.org/) (GO or by branch GO\:MF, GO\:BP, GO\:CC)
 * [KEGG](https://www.genome.jp/kegg/) (KEGG)
 * [Reactome](https://reactome.org/) (REAC)
-* [WikiPathways](https://www.wikipathways.org) (WP)
+* [WikiPathways](https://www.wikipathways.org/index.php/WikiPathways) (WP)
 * [TRANSFAC](https://genexplain.com/transfac/) (TF)
-* [miRTarBase](http://mirtarbase.mbc.nctu.edu.tw/php/index.php) (MIRNA)
+* [miRTarBase](https://mirtarbase.cuhk.edu.cn/~miRTarBase/miRTarBase_2019/php/index.php) (MIRNA)
 * [Human Protein Atlas](https://www.proteinatlas.org/) (HPA)
 * [CORUM](https://mips.helmholtz-muenchen.de/corum/) (CORUM)
-* [Human phenotype ontology](https://hpo.jax.org/) (HP)
+* [Human phenotype ontology](http://hpo.jax.org/app/) (HP)
+
+The function `get_version_info` enables to obtain the full metadata about the versions of different data sources for a given `organism`. 
+
+```{r}
+get_version_info(organism = "hsapiens")
+```
 
 ### Custom data sources with `upload_GMT_file`
 
@@ -318,7 +324,7 @@ In addition to the available GO, KEGG, etc data sources, users can upload their 
 `upload_GMT_file` enables to upload GMT file(s). The input `gmtfile` is the filename of the GMT file together with the path to the file. The input can also be several GMT files compressed into a ZIP file. 
 The file extension should be **.gmt** or **.zip** in case of multiple GMT files. The uploaded filename is used to define the source name in the enrichment results.
 
-For example, using the BioCarta gene sets downloaded from the [MSigDB Collections](http://software.broadinstitute.org/gsea/msigdb/collections.jsp#C7)
+For example, using the BioCarta gene sets downloaded from the [MSigDB Collections](http://software.broadinstitute.org/gsea/msigdb/collections.jsp#C7). 
 
 ```{r eval = F}
 download.file(url = "http://software.broadinstitute.org/gsea/resources/msigdb/7.0/c2.cp.biocarta.v7.0.symbols.gmt", destfile = "extdata/biocarta.gmt")
@@ -328,7 +334,7 @@ download.file(url = "http://software.broadinstitute.org/gsea/resources/msigdb/7.
 upload_GMT_file(gmtfile = "extdata/biocarta.gmt")
 ```
 
-The result is a string that denotes the unique ID of the uploaded data source in the [g:Profiler](https://biit.cs.ut.ee/gprofiler) database. In this examaple, the ID is **gp\_\_TEXF\_hZLM\_d18**.
+The result is a string that denotes the unique ID of the uploaded data source in the [g:Profiler](https://biit.cs.ut.ee/gprofiler/) database. In this examaple, the ID is **gp\_ \_TEXF\_hZLM\_d18**.
 
 After the upload, this ID can be used as a value for the parameter `organism` in the `gost` function. The input `query` should consist of identifiers that are available in the GMT file. Note that all the genes in the GMT file define the domain size and therefore it is not sufficient to include only the selection of interesting terms to the file.  
 
@@ -336,17 +342,17 @@ After the upload, this ID can be used as a value for the parameter `organism` in
 custom_gostres <- gost(query = c("MAPK3",	"PIK3C2G", "HRAS", "PIK3R1", "MAP2K1", 
                                  "RAF1", "PLCG1",	"GNAQ",	"MAPK1", "PRKCB",	"CRK", "BCAR1", "NFKB1"),
                        organism = "gp__TEXF_hZLM_d18")
-head(custom_gostres$result)
+head(custom_gostres$result, 3)
 ```
 
-There is no need to repeatedly upload the same GMT file(s) every time before the enrichment analysis. This can only be uploaded once and then the ID can be used in any further enrichment analyses that are based on that custom source. The same ID can also be used in the [web tool](https://biit.cs.ut.ee/gprofiler) as a token under the Custom GMT options. 
+There is no need to repeatedly upload the same GMT file(s) every time before the enrichment analysis. This can only be uploaded once and then the ID can be used in any further enrichment analyses that are based on that custom source. The same ID can also be used in the [web tool](https://biit.cs.ut.ee/gprofiler/) as a token under the Custom GMT options. 
 For example, the same query in the web tool is available from [https://biit.cs.ut.ee/gplink/l/jh3HdbUWQZ](https://biit.cs.ut.ee/gplink/l/jh3HdbUWQZ).
 
 ----
 
 ## Creating a Generic Enrichment Map (GEM) file for EnrichmentMap 
 
-Generic Enrichment Map (GEM) is a file format that can be used as an input for [Cytoscape EnrichmentMap application](http://apps.cytoscape.org/apps/enrichmentmap). In EnrichmentMap you can set the Analysis Type parameter as **Generic/gProfiler** and upload the required files: GEM file with enrichment results (input field **Enrichments**) and GMT file that defines the annotations (input field **GMT**). 
+Generic Enrichment Map (GEM) is a file format that can be used as an input for [Cytoscape EnrichmentMap application](https://apps.cytoscape.org/apps/enrichmentmap). In EnrichmentMap you can set the Analysis Type parameter as **Generic/gProfiler** and upload the required files: GEM file with enrichment results (input field **Enrichments**) and GMT file that defines the annotations (input field **GMT**). 
 
 For a single query, the GEM file can be generated and saved using the following commands:
 
@@ -360,7 +366,7 @@ colnames(gem) <- c("GO.ID", "Description", "p.Val", "Genes")
 gem$FDR <- gem$p.Val
 gem$Phenotype = "+1"
 gem <- gem[,c("GO.ID", "Description", "p.Val", "FDR", "Phenotype", "Genes")]
-head(gem)
+head(gem, 3)
 ```
 
 Here you can replace the `query` parameter with your own input. The parameter `evcodes = TRUE` is necessary as it returns the column **intersection** with corresponding gene IDs that are annotated to the term. 
@@ -375,7 +381,7 @@ Here the parameter `file` should be the character string naming the file togethe
 
 In addition to the GEM file, EnrichmentMap requires also the data source description GMT file as an input. For example, if you are using g:Profiler default data sources and your input query consists of human ENSG identifiers, then the required GMT file is available from [https://biit.cs.ut.ee/gprofiler/static/gprofiler_full_hsapiens.ENSG.gmt](https://biit.cs.ut.ee/gprofiler/static/gprofiler_full_hsapiens.ENSG.gmt). Note that this file does not include annotations from KEGG and Transfac as we are restricted by data source licenses that do not allow us to share these two data sources with our users. This means that the enrichment results in the GEM file cannot include results from these resources, otherwise you will get an error from the Cytoscape application. This can be assured by setting appropriate values to the `sources` parameter in the `gost()` function. 
 
-For other organisms, the GMT files are downloadable from the [g:Profiler web page](https://biit.cs.ut.ee/gprofiler) under the *Data sources* section, after setting a suitable value for the organism. If you are using a custom GMT file for you analysis, then this should be uploaded to EnrichmentMap. 
+For other organisms, the GMT files are downloadable from the [g:Profiler web page](https://biit.cs.ut.ee/gprofiler/) under the *Data sources* section, after setting a suitable value for the organism. If you are using a custom GMT file for you analysis, then this should be uploaded to EnrichmentMap. 
 
 In case you want to compare **multiple queries** in EnrichmentMap you could generate individual GEM files for each of the queries and upload these as separate Data sets. This EnrichmentMap option enables you to browse, edit and compare multiple networks simultaneously by color-coding different uploaded Data sets.  
 
@@ -415,7 +421,7 @@ gem %>% group_by(query) %>%
 `gconvert` enables to map between genes, proteins, microarray probes, common names, various database identifiers, etc, from numerous [databases](https://biit.cs.ut.ee/gprofiler/page/namespaces-list) and for many [species](https://biit.cs.ut.ee/gprofiler/page/organism-list). 
 
 ```{r}
-gconvert(query = c("REAC:R-HSA-3928664", "rs17396340", "NLRP1"), organism = "hsapiens", 
+gconvert(query = c("GO:0005030", "rs17396340", "NLRP1"), organism = "hsapiens", 
          target="ENSG", mthreshold = Inf, filter_na = TRUE)
 ```
 
@@ -526,7 +532,13 @@ The full list of namespaces that g:Profiler recognizes is available [here](https
 
 If you use the R package gprofiler2 in published research, please cite:
 
-Uku Raudvere, Liis Kolberg, Ivan Kuzmin, Tambet Arak, Priit Adler, Hedi Peterson, Jaak Vilo: **g:Profiler: a web server for functional enrichment analysis and conversions of gene lists (2019 update)** Nucleic Acids Research 2019; [doi:10.1093/nar/gkz369](https://doi.org/10.1093/nar/gkz369)
+1. Kolberg, L., Raudvere, U., Kuzmin, I., Vilo, J. and Peterson, H., 2020. 
+**gprofiler2--an R package for gene list functional enrichment analysis and namespace conversion toolset g: Profiler.** F1000Research, 9(ELIXIR):709.; [doi:10.12688/f1000research.24956.2](https://doi.org/10.12688/f1000research.24956.2)
+
+and 
+
+2. Raudvere, U., Kolberg, L., Kuzmin, I., Arak, T., Adler, P., Peterson, H. and Vilo, J., 2019. 
+**g: Profiler: a web server for functional enrichment analysis and conversions of gene lists (2019 update).** Nucleic Acids Research, 47(W1), pp.W191-W198.; [doi:10.1093/nar/gkz369](https://doi.org/10.1093/nar/gkz369)
 
 ## Need help?
 

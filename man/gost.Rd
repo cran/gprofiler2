@@ -68,20 +68,23 @@ list and details on incorporated data sources.}
 \value{
 A named list where 'result' contains data.frame with the enrichment analysis results and 'meta' contains metadata needed for Manhattan plot. If the input
  consisted of several lists the corresponding list is indicated with a variable
- 'query'.
+ 'query'. The 'result' data.frame is ordered first by the query name, data source (such as GO:BP, GO:CC, GO:MF, REAC, etc), and then by the adjusted p-value.
  When requesting a 'multi_query', either TRUE or FALSE, the columns of the resulting data frame differ.
  If 'evcodes' is set, the return value includes columns 'evidence_codes' and 'intersection'.
  The latter conveys info about the intersecting genes between the corresponding query and term.
 
  The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
 
- If 'as_short_link' is set to TRUE, then the result is a character short-link to see and share corresponding results via the g:Profiler web tool.
+ If 'as_short_link' is set to TRUE, then the result is a character short-link to see and share corresponding results via the g:Profiler web tool. In this case, the input gene lists will be stored in a database.
 }
 \description{
 Interface to the g:Profiler tool g:GOSt (\url{https://biit.cs.ut.ee/gprofiler/gost}) for functional enrichments analysis of gene lists.
 In case the input 'query' is a list of gene vectors, results for multiple queries will be returned in the same data frame with column 'query' indicating the corresponding query name.
 If 'multi_query' is selected, the result is a data frame for comparing multiple input lists,
 just as in the web tool.
+}
+\details{
+The input gene lists are not stored in g:Profiler unless the option 'as_short_link' is set to TRUE.
 }
 \examples{
 gostres <- gost(c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"))

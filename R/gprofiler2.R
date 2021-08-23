@@ -29,6 +29,8 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #' If 'multi_query' is selected, the result is a data frame for comparing multiple input lists,
 #' just as in the web tool.
 #'
+#' The input gene lists are not stored in g:Profiler unless the option 'as_short_link' is set to TRUE.
+#'
 #' @param query character vector, or a (named) list of character vectors for multiple queries, that can consist of mixed types of gene IDs (proteins, transcripts, microarray IDs, etc), SNP IDs, chromosomal intervals or term IDs.
 #' @param organism organism name. Organism names are constructed by concatenating the first letter of the name and the
 #' family name. Example: human - 'hsapiens', mouse - 'mmusculus'.
@@ -57,14 +59,14 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #' @param as_short_link indicator to return results as short-link to the g:Profiler web tool. If set to TRUE, then the function returns the results URL as a character string instead of the data.frame.
 #' @return A named list where 'result' contains data.frame with the enrichment analysis results and 'meta' contains metadata needed for Manhattan plot. If the input
 #'  consisted of several lists the corresponding list is indicated with a variable
-#'  'query'.
+#'  'query'. The 'result' data.frame is ordered first by the query name, data source (such as GO:BP, GO:CC, GO:MF, REAC, etc), and then by the adjusted p-value.
 #'  When requesting a 'multi_query', either TRUE or FALSE, the columns of the resulting data frame differ.
 #'  If 'evcodes' is set, the return value includes columns 'evidence_codes' and 'intersection'.
 #'  The latter conveys info about the intersecting genes between the corresponding query and term.
 #'
 #'  The result fields are further described in the \href{https://cran.r-project.org/package=gprofiler2/vignettes/gprofiler2.html}{vignette}.
 #'
-#'  If 'as_short_link' is set to TRUE, then the result is a character short-link to see and share corresponding results via the g:Profiler web tool.
+#'  If 'as_short_link' is set to TRUE, then the result is a character short-link to see and share corresponding results via the g:Profiler web tool. In this case, the input gene lists will be stored in a database.
 #' @author  Liis Kolberg <liis.kolberg@@ut.ee>, Uku Raudvere <uku.raudvere@@ut.ee>
 #' @examples
 #' gostres <- gost(c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"))
@@ -159,9 +161,20 @@ gost <- function(query,
 
     url = file.path("http://biit.cs.ut.ee", "gplink", "l")
 
+    # get data_version
+    version_info = try(gprofiler2::get_version_info(), silent = TRUE)
+    if("try-error" %in% class(version_info)){
+      base_url = gprofiler2::get_base_url()
+      # get data version from archive
+      data_version = basename(base_url)
+    }else{
+      data_version = version_info$gprofiler_version
+    }
+
     body <- jsonlite::toJSON((
       list(
         url = jsonlite::unbox(file.path(gprofiler2::get_base_url(), "gost")),
+        data_version = jsonlite::unbox(data_version),
         payload = {
           list(
             organism = jsonlite::unbox(organism),
@@ -213,8 +226,8 @@ gost <- function(query,
     list("Accept" = "application/json",
          "Content-Type" = "application/json",
          "charset" = "UTF-8",
-          "Expect" = "")
-oldw <- getOption("warn")
+         "Expect" = "")
+  oldw <- getOption("warn")
   options(warn = -1)
   h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
   h2 = RCurl::getCurlHandle() # Get info about the request
@@ -300,13 +313,13 @@ oldw <- getOption("warn")
           genes <- meta$genes_metadata$query[[query]]$ensgs[which(lengths(evcodes) > 0)]
           genes2 <- lapply(genes, function(x) ifelse(x %in% genemap, names(which(genemap == x)) , x))
           return(paste0(genes2, collapse = ","))
-          },
+        },
         df$intersections,
         df$query,
         SIMPLIFY = TRUE
       )
       df$evidence_codes <- sapply(df$intersections, function(x)
-          paste0(sapply(x[which(lengths(x) > 0)], paste0, collapse = " "), collapse = ","), USE.NAMES = FALSE)
+        paste0(sapply(x[which(lengths(x) > 0)], paste0, collapse = " "), collapse = ","), USE.NAMES = FALSE)
     }
 
     # Order by query, source and p_value
@@ -1112,7 +1125,11 @@ gconvert = function(
 
   # filter empty results
   if (filter_na){
-    df <- df[df$converted != "None",]
+    df <- df[!df$converted %in% c("nan", "None"),]
+  }else{
+    # convert to NA-s
+    df[df == "nan"] <- NA_character_
+    df[df == "None"] <- NA_character_
   }
   if (nrow(df) == 0){
     message("No results to show\n", "Please make sure that the organism or namespace is correct")
@@ -1473,3 +1490,59 @@ set_base_url = function(url) {
   assign("base_url", url, envir = gp_globals)
 }
 
+#' Get version info of g:Profiler data sources
+#'
+#' @param organism organism name. Organism names are constructed by concatenating the first letter of the name and the family name. Example: human - 'hsapiens', mouse - 'mmusculus'.
+#' @return A named nested list that includes the versions for all the data sources (GO, KEGG, Reactome, WP, etc) at the time of the data extraction for the given organism.
+#' The versions correspond to the g:Profiler version embedded in the base_url which is also returned by this function under the name 'gprofiler_version'.
+#' @author Liis Kolberg <liis.kolberg@@ut.ee>
+#' @examples
+#' \dontrun{version_info <- get_version_info(organism = "hsapiens")}
+#'
+#' @export
+get_version_info <- function(organism = "hsapiens"){
+  url = file.path(gprofiler2::get_base_url(), "api", "util", "data_versions")
+
+  body <- jsonlite::toJSON((
+    list(
+      organism = jsonlite::unbox(organism)
+    )
+  ),
+  auto_unbox = FALSE,
+  null = "null")
+
+  # Headers
+  headers <-
+    list("Accept" = "application/json",
+         "Content-Type" = "application/json",
+         "charset" = "UTF-8",
+         "Expect" = "")
+  oldw <- getOption("warn")
+  options(warn = -1)
+  h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
+  h2 = RCurl::getCurlHandle() # Get info about the request
+
+  # Request
+  r = RCurl::curlPerform(
+    url = url,
+    postfields = body,
+    httpheader = headers,
+    customrequest = 'POST',
+    verbose = FALSE,
+    ssl.verifypeer = FALSE,
+    writefunction = h1$update,
+    curl = h2,
+    .opts = gp_globals$rcurl_opts
+  )
+  options(warn = 0)
+  rescode = RCurl::getCurlInfo(h2)[["response.code"]]
+  txt <- h1$value()
+
+  if (rescode != 200) {
+    stop("Bad request, response code ", rescode)
+  }
+
+  version_info <- jsonlite::fromJSON(txt)
+
+  return(version_info)
+}

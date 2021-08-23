@@ -1,0 +1,17 @@
+note <- sprintf("R package version %s", meta$Version)
+
+bibentry(bibtype = "article",
+         title = "gprofiler2-- an R package for gene list functional enrichment analysis and namespace conversion toolset g:Profiler",
+         journal = "F1000Research",
+         author = c(person("Liis", "Kolberg"),
+                    person("Uku", "Raudvere"),
+                    person("Ivan", "Kuzmin"),
+                    person("Jaak", "Vilo"),
+                    person("Hedi", "Peterson")),
+         volume= "9 (ELIXIR)",
+         number="709",
+         year = 2020,
+         note = note)
+
+citHeader("To cite gprofiler2 in publications, please use:")
+
