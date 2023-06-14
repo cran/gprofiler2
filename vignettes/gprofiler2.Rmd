@@ -109,14 +109,16 @@ Depending on the research question, in some occasions it is advisable to limit t
 The parameter `sources` enables to choose the data sources of interest. By default, all the sources are analysed. The available data sources and their abbreviations are listed under section [Data sources].
 For example, if `sources = c("GO:MF", "REAC")` then only the results from molecular functions branch of Gene Ontology and the pathways from Reactome are returned. One can also upload their own annotation data which is further described in the section [Custom data sources with `upload_GMT_file`].
 
-```{r}
+Parameter `highlight` includes an indicator TRUE/FALSE column called **"highlighted"** to the analysis results to [highlight driver terms in GO](https://biit.cs.ut.ee/gprofiler/page/docs#highlight_go). This option works starting from Ensembl version 108 (e108). The option doesn't work with custom GMT files.   
+
+```{r, message = FALSE}
 gostres <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
                 organism = "hsapiens", ordered_query = FALSE, 
                 multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
                 measure_underrepresentation = FALSE, evcodes = FALSE, 
                 user_threshold = 0.05, correction_method = "g_SCS", 
                 domain_scope = "annotated", custom_bg = NULL, 
-                numeric_ns = "", sources = NULL, as_short_link = FALSE)
+                numeric_ns = "", sources = NULL, as_short_link = FALSE, highlight = TRUE)
 ```
 
 The result is a named `list` where **"result"** is a `data.frame` with the enrichment analysis results and **"meta"** containing a named `list` with all the metadata for the query. 
@@ -148,7 +150,8 @@ The result `data.frame` contains the following columns:
 * term_name - the short name of the function
 * effective_domain_size - the total number of genes "in the universe" used for the hypergeometric test
 * source_order - numeric order for the term within its data source (this is important for drawing the results)
-* parents - list of term IDs that are hierarchically directly above the term. For non-hierarchical data sources this points to an artificial root node. 
+* parents - list of term IDs that are hierarchically directly above the term. For non-hierarchical data sources this points to an artificial root node
+* highlighted - TRUE/FALSE for **GO terms** to indicate driver terms detected by a two-stage algorithm for filtering (works starting from version e108). NB! For non-GO terms the value is always FALSE. This column could be used to indicate terms to highlight in the `gostplot` (see below). 
 
 ```{r}
 names(gostres$meta)
@@ -158,14 +161,14 @@ The query parameters are listed in the **"query_metadata"** part of the metadata
 
 The parameter `evcodes = TRUE` includes the evidence codes to the results. In addition, a column **"intersection"** will appear to the results showing the input gene IDs that intersect with the corresponding functional term. Note that his parameter can decrease the performance and make the query slower. 
 
-```{r}
+```{r, message = FALSE}
 gostres2 <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
                 organism = "hsapiens", ordered_query = FALSE, 
                 multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
                 measure_underrepresentation = FALSE, evcodes = TRUE, 
                 user_threshold = 0.05, correction_method = "g_SCS", 
                 domain_scope = "annotated", custom_bg = NULL, 
-                numeric_ns = "", sources = NULL)
+                numeric_ns = "", sources = NULL, highlight = TRUE)
 ```
 
 ```{r}
@@ -308,7 +311,7 @@ Available data sources and their abbreviations are:
 * [TRANSFAC](https://genexplain.com/transfac/) (TF)
 * [miRTarBase](https://mirtarbase.cuhk.edu.cn/~miRTarBase/miRTarBase_2019/php/index.php) (MIRNA)
 * [Human Protein Atlas](https://www.proteinatlas.org/) (HPA)
-* [CORUM](https://mips.helmholtz-muenchen.de/corum/) (CORUM)
+* CORUM (CORUM)
 * [Human phenotype ontology](http://hpo.jax.org/app/) (HP)
 
 The function `get_version_info` enables to obtain the full metadata about the versions of different data sources for a given `organism`. 

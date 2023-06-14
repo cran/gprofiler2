@@ -20,7 +20,8 @@ gost(
   custom_bg = NULL,
   numeric_ns = "",
   sources = NULL,
-  as_short_link = FALSE
+  as_short_link = FALSE,
+  highlight = FALSE
 )
 }
 \arguments{
@@ -64,6 +65,8 @@ MIRNA, CORUM, HP, HPA, WP. Please see the g:GOSt web tool for the comprehensive
 list and details on incorporated data sources.}
 
 \item{as_short_link}{indicator to return results as short-link to the g:Profiler web tool. If set to TRUE, then the function returns the results URL as a character string instead of the data.frame.}
+
+\item{highlight}{indicator to return a TRUE-FALSE column called 'highlighted' to indicate driver terms in GO.}
 }
 \value{
 A named list where 'result' contains data.frame with the enrichment analysis results and 'meta' contains metadata needed for Manhattan plot. If the input

@@ -57,6 +57,7 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #'  MIRNA, CORUM, HP, HPA, WP. Please see the g:GOSt web tool for the comprehensive
 #'  list and details on incorporated data sources.
 #' @param as_short_link indicator to return results as short-link to the g:Profiler web tool. If set to TRUE, then the function returns the results URL as a character string instead of the data.frame.
+#' @param highlight indicator to return a TRUE-FALSE column called 'highlighted' to indicate driver terms in GO.
 #' @return A named list where 'result' contains data.frame with the enrichment analysis results and 'meta' contains metadata needed for Manhattan plot. If the input
 #'  consisted of several lists the corresponding list is indicated with a variable
 #'  'query'. The 'result' data.frame is ordered first by the query name, data source (such as GO:BP, GO:CC, GO:MF, REAC, etc), and then by the adjusted p-value.
@@ -86,18 +87,44 @@ gost <- function(query,
                       custom_bg = NULL,
                       numeric_ns  = "",
                       sources = NULL,
-                      as_short_link = FALSE
+                      as_short_link = FALSE,
+                      highlight = FALSE
                     ) {
 
   url = paste0(file.path(gp_globals$base_url, "api", "gost", "profile"), "/")
-
+  
+  # get data_version
+  version_info = try(gprofiler2::get_version_info(), silent = TRUE)
+  if("try-error" %in% class(version_info)){
+    base_url = gprofiler2::get_base_url()
+    # get data version from archive
+    data_version = basename(base_url)
+  }else{
+    data_version = version_info$gprofiler_version
+  }
+  # extract ensembl version
+  ensembl_version = as.numeric(gsub("\\D", "", strsplit(data_version, "_")[[1]][1]))
+  if (highlight & ensembl_version < 108){
+    message("Note that the set g:Profiler version doesn't support GO term highlighting")
+  }
+  if (highlight & ordered_query){
+    message("Highlighting is not supported for ordered query. Setting 'highlight = FALSE'")
+    highlight = FALSE
+  }
+  if (highlight & !significant){
+    message("Highlighting is not supported if all results are returned (significant = FALSE). Setting 'highlight = FALSE'")
+    highlight = FALSE
+  }
+  
   # Query
 
   if (is.null(query) | all(is.na(query))) {
-    stop("Missing query")
+    message("Missing query")
+    return(NULL)
   } else if (is.list(query)) {
     if (is.data.frame(query)){
-      stop("Query can't be a data.frame. Please use a vector or list of identifiers.")
+      message("Query can't be a data.frame. Please use a vector or list of identifiers.")
+      return(NULL)
     }
     # Multiple queries
     qnames = names(query)
@@ -124,6 +151,9 @@ gost <- function(query,
 
   if (startsWith(organism, "gp__")){
     message("Detected custom GMT source request")
+    if (highlight){
+      message("Highlighting option doesn't work with custom GMT data")
+    }
     if (!is.null(sources)){
       message("Sources selection is not available for custom GMT requests. All sources in the GMT upload will be used.")
       sources <- NULL
@@ -136,7 +166,8 @@ gost <- function(query,
 
   if (!is.null(custom_bg)){
     if (!is.vector(custom_bg)){
-      stop("custom_bg must be a vector")
+      message("custom_bg must be a vector")
+      return(NULL) 
     }
     if (!domain_scope %in% c("custom_annotated", "custom")){
       message("Detected custom background input, domain scope is set to 'custom'")
@@ -145,7 +176,8 @@ gost <- function(query,
     t <- ifelse(length(custom_bg) == 1, custom_bg <- jsonlite::unbox(custom_bg), custom_bg <- custom_bg)
   }else{
     if (domain_scope %in% c("custom_annotated", "custom")){
-      stop("Domain scope is set to custom, but no background genes detected from the input.")
+      message("Domain scope is set to custom, but no background genes detected from the input.")
+      return(NULL) 
     }
   }
 
@@ -160,48 +192,11 @@ gost <- function(query,
     }
 
     url = file.path("http://biit.cs.ut.ee", "gplink", "l")
-
-    # get data_version
-    version_info = try(gprofiler2::get_version_info(), silent = TRUE)
-    if("try-error" %in% class(version_info)){
-      base_url = gprofiler2::get_base_url()
-      # get data version from archive
-      data_version = basename(base_url)
-    }else{
-      data_version = version_info$gprofiler_version
-    }
-
-    body <- jsonlite::toJSON((
-      list(
-        url = jsonlite::unbox(file.path(gprofiler2::get_base_url(), "gost")),
-        data_version = jsonlite::unbox(data_version),
-        payload = {
-          list(
-            organism = jsonlite::unbox(organism),
-            query = jsonlite::unbox(query2),
-            sources = sources,
-            user_threshold = jsonlite::unbox(user_threshold),
-            all_results = jsonlite::unbox(!significant),
-            ordered = jsonlite::unbox(ordered_query),
-            no_evidences = jsonlite::unbox(!evcodes),
-            combined = jsonlite::unbox(multi_query),
-            measure_underrepresentation = jsonlite::unbox(measure_underrepresentation),
-            no_iea = jsonlite::unbox(exclude_iea),
-            domain_scope = jsonlite::unbox(domain_scope),
-            numeric_ns = jsonlite::unbox(numeric_ns),
-            significance_threshold_method = jsonlite::unbox(correction_method),
-            background = custom_bg)
-        }
-      )
-    ),
-    auto_unbox = FALSE,
-    null = "null")
-
-  } else {
-    body <- jsonlite::toJSON((
+    
+    payload = {
       list(
         organism = jsonlite::unbox(organism),
-        query = query,
+        query = jsonlite::unbox(query2),
         sources = sources,
         user_threshold = jsonlite::unbox(user_threshold),
         all_results = jsonlite::unbox(!significant),
@@ -213,14 +208,51 @@ gost <- function(query,
         domain_scope = jsonlite::unbox(domain_scope),
         numeric_ns = jsonlite::unbox(numeric_ns),
         significance_threshold_method = jsonlite::unbox(correction_method),
-        background = custom_bg,
-        output = jsonlite::unbox("json")
+        background = custom_bg)
+    }
+    # add driver terms parameter starting from ensembl version 108
+    if (ensembl_version >= 108 & !startsWith(organism, "gp__")) {
+      payload$highlight <- jsonlite::unbox(highlight)
+    }
+    body <- jsonlite::toJSON((
+      list(
+        url = jsonlite::unbox(file.path(gprofiler2::get_base_url(), "gost")),
+        data_version = jsonlite::unbox(data_version),
+        payload = payload
       )
     ),
     auto_unbox = FALSE,
     null = "null")
-  }
 
+  } else {
+    payload = list(
+      organism = jsonlite::unbox(organism),
+      query = query,
+      sources = sources,
+      user_threshold = jsonlite::unbox(user_threshold),
+      all_results = jsonlite::unbox(!significant),
+      ordered = jsonlite::unbox(ordered_query),
+      no_evidences = jsonlite::unbox(!evcodes),
+      combined = jsonlite::unbox(multi_query),
+      measure_underrepresentation = jsonlite::unbox(measure_underrepresentation),
+      no_iea = jsonlite::unbox(exclude_iea),
+      domain_scope = jsonlite::unbox(domain_scope),
+      numeric_ns = jsonlite::unbox(numeric_ns),
+      significance_threshold_method = jsonlite::unbox(correction_method),
+      background = custom_bg,
+      output = jsonlite::unbox("json")
+    )
+    # add driver terms parameter starting from ensembl version 108
+    if (ensembl_version >= 108 & !startsWith(organism, "gp__")) {
+      payload$highlight <- jsonlite::unbox(highlight)
+    }
+    body <- jsonlite::toJSON((
+      payload
+    ),
+    auto_unbox = FALSE,
+    null = "null")
+  }
+  
   # Headers
   headers <-
     list("Accept" = "application/json",
@@ -249,9 +281,11 @@ gost <- function(query,
   txt <- h1$value()
 
   if (rescode != 200) {
-    stop("Bad request, response code ", rescode)
+    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
+    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
+    return(NULL) 
   }
-
+  
   res <- jsonlite::fromJSON(txt)
 
   if (as_short_link){
@@ -301,9 +335,7 @@ gost <- function(query,
       "term_name",
       "effective_domain_size",
       "source_order",
-      "parents"
-    )
-
+      "parents")
     if (evcodes) {
       col_names <- append(col_names, c("evidence_codes", "intersection"))
       # Add column that lists the intersecting genes separated by comma
@@ -321,10 +353,13 @@ gost <- function(query,
       df$evidence_codes <- sapply(df$intersections, function(x)
         paste0(sapply(x[which(lengths(x) > 0)], paste0, collapse = " "), collapse = ","), USE.NAMES = FALSE)
     }
-
+  
     # Order by query, source and p_value
     df <- df[with(df, order(query, source, p_value)), ]
 
+  }
+  if (highlight & ensembl_version >= 108 & !startsWith(organism, "gp__")){
+    col_names <- append(col_names, "highlighted")
   }
 
   # Rename native to term_id
@@ -670,10 +705,10 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
   # gostres is the GOSt response list (contains results and metadata) or a data frame
   term_id <- p_values <- query <- p_value <- NULL
 
-  if (class(gostres) == "list"){
+  if (is.list(gostres) & !is.data.frame(gostres)){
     if (!("result" %in% names(gostres))) stop("Name 'result' not found from the input")
     df <- gostres$result
-  } else if (class(gostres) == "data.frame"){
+  } else if (is.data.frame(gostres)){
     df <- gostres
   } else {
     stop("The input 'gostres' should be a data frame or a list from the gost() function.")
@@ -933,7 +968,9 @@ upload_GMT_file <- function(gmtfile){
     rescode = RCurl::getCurlInfo(h2)[["response.code"]]
 
     if (rescode != 200) {
-      stop("Bad request, response code ", rescode)
+      message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
+      message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
+      return(NULL) 
     }
 
     txt <- h1$value()
@@ -954,7 +991,9 @@ upload_GMT_file <- function(gmtfile){
     rescode = RCurl::getCurlInfo(h2)[["response.code"]]
 
     if (rescode != 200) {
-      stop("Bad request, response code ", rescode)
+      message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
+      message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
+      return(NULL) 
     }
     res <- jsonlite::fromJSON(r)
   }
@@ -1014,7 +1053,9 @@ oldw <- getOption("warn")
   txt <- h1$value()
 
   if (rescode != 200) {
-    stop("Bad request, response code ", rescode)
+    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
+    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
+    return(NULL) 
   }
   res <- jsonlite::fromJSON(txt)
   return(res)
@@ -1109,7 +1150,9 @@ gconvert = function(
   txt <- h1$value()
 
   if (rescode != 200) {
-    stop("Bad request, response code ", rescode)
+    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
+    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
+    return(NULL) 
   }
 
   res <- jsonlite::fromJSON(txt)
@@ -1252,7 +1295,9 @@ gorth <- function(
   txt <- h1$value()
 
   if (rescode != 200) {
-    stop("Bad request, response code ", rescode)
+    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
+    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
+    return(NULL) 
   }
 
   res <- jsonlite::fromJSON(txt)
@@ -1373,7 +1418,9 @@ gsnpense <- function(
   txt <- h1$value()
 
   if (rescode != 200) {
-    stop("Bad request, response code ", rescode)
+    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
+    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
+    return(NULL) 
   }
 
   res <- jsonlite::fromJSON(txt)
@@ -1539,7 +1586,9 @@ get_version_info <- function(organism = "hsapiens"){
   txt <- h1$value()
 
   if (rescode != 200) {
-    stop("Bad request, response code ", rescode)
+    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
+    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
+    return(NULL) 
   }
 
   version_info <- jsonlite::fromJSON(txt)

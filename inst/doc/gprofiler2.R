@@ -10,14 +10,14 @@ knitr::opts_chunk$set(
 ## ----setup--------------------------------------------------------------------
 library(gprofiler2)
 
-## -----------------------------------------------------------------------------
+## ---- message = FALSE---------------------------------------------------------
 gostres <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
                 organism = "hsapiens", ordered_query = FALSE, 
                 multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
                 measure_underrepresentation = FALSE, evcodes = FALSE, 
                 user_threshold = 0.05, correction_method = "g_SCS", 
                 domain_scope = "annotated", custom_bg = NULL, 
-                numeric_ns = "", sources = NULL, as_short_link = FALSE)
+                numeric_ns = "", sources = NULL, as_short_link = FALSE, highlight = TRUE)
 
 ## -----------------------------------------------------------------------------
 names(gostres)
@@ -28,14 +28,14 @@ head(gostres$result, 3)
 ## -----------------------------------------------------------------------------
 names(gostres$meta)
 
-## -----------------------------------------------------------------------------
+## ---- message = FALSE---------------------------------------------------------
 gostres2 <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
                 organism = "hsapiens", ordered_query = FALSE, 
                 multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
                 measure_underrepresentation = FALSE, evcodes = TRUE, 
                 user_threshold = 0.05, correction_method = "g_SCS", 
                 domain_scope = "annotated", custom_bg = NULL, 
-                numeric_ns = "", sources = NULL)
+                numeric_ns = "", sources = NULL, highlight = TRUE)
 
 ## -----------------------------------------------------------------------------
 head(gostres2$result, 3)
