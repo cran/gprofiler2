@@ -104,7 +104,7 @@ In order to reduce the amount of false positives, a [multiple testing correction
 
 The parameter `domain_scope` defines how the [statistical domain size](https://biit.cs.ut.ee/gprofiler/page/docs#statistical_domain_scope) is calculated. This is one of the parameters in the hypergeometric probability function. If `domain_scope = "annotated"` then only the genes with at least one annotation are considered to be part of the full domain. In case if `domain_scope = "known"` then all the genes of the given organism are considered to be part of the domain.
 
-Depending on the research question, in some occasions it is advisable to limit the domain/background set. For example, one may use the custom background when they want to compare a gene list with a custom list of expressed genes. `gost` provides the means to define a custom background as a (mixed) list of gene identifiers with the parameter `custom_bg`. If this parameter is used, then the domain scope is set to `domain_scope = "custom"`. It is also possible to set this parameter to `domain_scope = "custom_annotated"` which will use the set of genes that are annotated in the data source and are also included in the user provided background list. 
+Depending on the research question, in some occasions it is advisable to limit the domain/background set. For example, one may use the custom background when they want to compare a gene list with a custom list of expressed genes. `gost` provides the means to define a custom background as a (mixed) vector of gene identifiers with the parameter `custom_bg`. If this parameter is used, then the domain scope is set to `domain_scope = "custom"`. It is also possible to set this parameter to `domain_scope = "custom_annotated"` which will use the set of genes that are annotated in the data source and are also included in the user provided background list. 
 
 The parameter `sources` enables to choose the data sources of interest. By default, all the sources are analysed. The available data sources and their abbreviations are listed under section [Data sources].
 For example, if `sources = c("GO:MF", "REAC")` then only the results from molecular functions branch of Gene Ontology and the pathways from Reactome are returned. One can also upload their own annotation data which is further described in the section [Custom data sources with `upload_GMT_file`].
@@ -304,7 +304,7 @@ publish_gosttable(multi_gostres1,
 
 Available data sources and their abbreviations are:
 
-* [Gene Ontology](http://geneontology.org/) (GO or by branch GO\:MF, GO\:BP, GO\:CC)
+* [Gene Ontology](https://geneontology.org/) (GO or by branch GO\:MF, GO\:BP, GO\:CC)
 * [KEGG](https://www.genome.jp/kegg/) (KEGG)
 * [Reactome](https://reactome.org/) (REAC)
 * [WikiPathways](https://www.wikipathways.org/index.php/WikiPathways) (WP)
@@ -322,12 +322,12 @@ get_version_info(organism = "hsapiens")
 
 ### Custom data sources with `upload_GMT_file`
 
-In addition to the available GO, KEGG, etc data sources, users can upload their own custom data source using the Gene Matrix Transposed file format (GMT). The file format is described in [here](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats#GMT:_Gene_Matrix_Transposed_file_format_.28.2A.gmt.29). The users can compose the files themselves or use pre-compiled gene sets from available dedicated websites like Molecular Signatures Database ([MSigDB](http://software.broadinstitute.org/gsea/msigdb/genesets.jsp)), etc. The GMT files for g:Profiler default sources (except for KEGG and Transfac as we are restricted by data source licenses) are downloadabale from the Data sources section in [g:Profiler](https://biit.cs.ut.ee/gprofiler/gost).
+In addition to the available GO, KEGG, etc data sources, users can upload their own custom data source using the Gene Matrix Transposed file format (GMT). The file format is described in [here](https://software.broadinstitute.org/cancer/software/gsea/wiki/index.php/Data_formats#GMT:_Gene_Matrix_Transposed_file_format_.28.2A.gmt.29). The users can compose the files themselves or use pre-compiled gene sets from available dedicated websites like Molecular Signatures Database ([MSigDB](https://software.broadinstitute.org/gsea/msigdb/genesets.jsp)), etc. The GMT files for g:Profiler default sources (except for KEGG and Transfac as we are restricted by data source licenses) are downloadabale from the Data sources section in [g:Profiler](https://biit.cs.ut.ee/gprofiler/gost).
 
 `upload_GMT_file` enables to upload GMT file(s). The input `gmtfile` is the filename of the GMT file together with the path to the file. The input can also be several GMT files compressed into a ZIP file. 
 The file extension should be **.gmt** or **.zip** in case of multiple GMT files. The uploaded filename is used to define the source name in the enrichment results.
 
-For example, using the BioCarta gene sets downloaded from the [MSigDB Collections](http://software.broadinstitute.org/gsea/msigdb/collections.jsp#C7). 
+For example, using the BioCarta gene sets downloaded from the [MSigDB Collections](https://software.broadinstitute.org/gsea/msigdb/collections.jsp#C7). 
 
 ```{r eval = F}
 download.file(url = "http://software.broadinstitute.org/gsea/resources/msigdb/7.0/c2.cp.biocarta.v7.0.symbols.gmt", destfile = "extdata/biocarta.gmt")

@@ -1,4 +1,4 @@
-## ---- include = FALSE---------------------------------------------------------
+## ----include = FALSE----------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
@@ -10,7 +10,7 @@ knitr::opts_chunk$set(
 ## ----setup--------------------------------------------------------------------
 library(gprofiler2)
 
-## ---- message = FALSE---------------------------------------------------------
+## ----message = FALSE----------------------------------------------------------
 gostres <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
                 organism = "hsapiens", ordered_query = FALSE, 
                 multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
@@ -28,7 +28,7 @@ head(gostres$result, 3)
 ## -----------------------------------------------------------------------------
 names(gostres$meta)
 
-## ---- message = FALSE---------------------------------------------------------
+## ----message = FALSE----------------------------------------------------------
 gostres2 <- gost(query = c("X:1000:1000000", "rs17396340", "GO:0005005", "ENSG00000156103", "NLRP1"), 
                 organism = "hsapiens", ordered_query = FALSE, 
                 multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, 
@@ -118,10 +118,10 @@ gem$Phenotype = "+1"
 gem <- gem[,c("GO.ID", "Description", "p.Val", "FDR", "Phenotype", "Genes")]
 head(gem, 3)
 
-## ---- eval=F------------------------------------------------------------------
+## ----eval=F-------------------------------------------------------------------
 #  write.table(gem, file = "extdata/gProfiler_gem.txt", sep = "\t", quote = F, row.names = F)
 
-## ---- eval=F------------------------------------------------------------------
+## ----eval=F-------------------------------------------------------------------
 #  # enrichment for two input gene lists
 #  multi_gostres <- gost(query = list("chromX" = c("X:1000:1000000", "rs17396340",
 #                                                   "GO:0005005", "ENSG00000156103", "NLRP1"),

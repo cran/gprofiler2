@@ -74,36 +74,53 @@ gp_globals$base_url = "http://biit.cs.ut.ee/gprofiler"
 #'
 #' @export
 gost <- function(query,
-                      organism = "hsapiens",
-                      ordered_query = FALSE,
-                      multi_query = FALSE,
-                      significant = TRUE,
-                      exclude_iea = FALSE,
-                      measure_underrepresentation = FALSE,
-                      evcodes = FALSE,
-                      user_threshold = 0.05,
-                      correction_method = c("g_SCS", "bonferroni", "fdr", "false_discovery_rate", "gSCS", "analytical"),
-                      domain_scope = c("annotated", "known", "custom", "custom_annotated"),
-                      custom_bg = NULL,
-                      numeric_ns  = "",
-                      sources = NULL,
-                      as_short_link = FALSE,
-                      highlight = FALSE
-                    ) {
-
+                 organism = "hsapiens",
+                 ordered_query = FALSE,
+                 multi_query = FALSE,
+                 significant = TRUE,
+                 exclude_iea = FALSE,
+                 measure_underrepresentation = FALSE,
+                 evcodes = FALSE,
+                 user_threshold = 0.05,
+                 correction_method = c("g_SCS", "bonferroni", "fdr", "false_discovery_rate", "gSCS", "analytical"),
+                 domain_scope = c("annotated", "known", "custom", "custom_annotated"),
+                 custom_bg = NULL,
+                 numeric_ns  = "",
+                 sources = NULL,
+                 as_short_link = FALSE,
+                 highlight = FALSE
+) {
+  
   url = paste0(file.path(gp_globals$base_url, "api", "gost", "profile"), "/")
   
-  # get data_version
-  version_info = try(gprofiler2::get_version_info(), silent = TRUE)
-  if("try-error" %in% class(version_info)){
-    base_url = gprofiler2::get_base_url()
-    # get data version from archive
-    data_version = basename(base_url)
-  }else{
-    data_version = version_info$gprofiler_version
+  data_version = "e1" # set placeholder version
+  
+  if (!startsWith(organism, "gp__")){
+    # get data_version
+    version_info = gprofiler2::get_version_info(organism = organism)
+    
+    if(is.null(version_info) || ("try-error" %in% class(version_info))){
+      base_url = gprofiler2::get_base_url()
+      # get data version from archive
+      if(grepl("archive3", base_url, fixed=TRUE)){
+        data_version = basename(base_url)
+      }
+      if(grepl("archive2", base_url, fixed=TRUE)){
+        message("You're trying to use very old version of g:Profiler. Not all functionality is available.")
+        #data_version = "e1" # set placeholder version
+      }
+    }else{
+      data_version = version_info$gprofiler_version
+    }
   }
+  
   # extract ensembl version
-  ensembl_version = as.numeric(gsub("\\D", "", strsplit(data_version, "_")[[1]][1]))
+  if(is.character(data_version)){
+    ensembl_version = as.numeric(gsub("\\D", "", strsplit(data_version, "_")[[1]][1]))
+  }else{
+    message("Something went wrong. Please check the base url.")
+    return(NULL)
+  }
   if (highlight & ensembl_version < 108){
     message("Note that the set g:Profiler version doesn't support GO term highlighting")
   }
@@ -117,7 +134,7 @@ gost <- function(query,
   }
   
   # Query
-
+  
   if (is.null(query) | all(is.na(query))) {
     message("Missing query")
     return(NULL)
@@ -144,53 +161,51 @@ gost <- function(query,
     # handle potential numeric values in the input
     query = as.character(query)
   }
-
+  
   ## evaluate choices
   correction_method <- match.arg(correction_method)
   domain_scope <- match.arg(domain_scope)
-
+  
   if (startsWith(organism, "gp__")){
     message("Detected custom GMT source request")
     if (highlight){
-      message("Highlighting option doesn't work with custom GMT data")
+      message("Highlighting option doesn't work with custom GMT data.")
     }
     if (!is.null(sources)){
       message("Sources selection is not available for custom GMT requests. All sources in the GMT upload will be used.")
       sources <- NULL
     }
   }
-
+  
   if (multi_query & evcodes){
     message("Evidence codes are not supported with multi_query option and will not be included in the results.\nYou can get evidence codes and intersection genes by setting multi_query = FALSE while keeping the input query as a list of multiple gene vectors.")
   }
-
+  
   if (!is.null(custom_bg)){
-    if (!is.vector(custom_bg)){
-      message("custom_bg must be a vector")
-      return(NULL) 
+    if (!is.vector(custom_bg) || is.list(custom_bg)){
+      stop("custom_bg must be a vector.")
     }
     if (!domain_scope %in% c("custom_annotated", "custom")){
-      message("Detected custom background input, domain scope is set to 'custom'")
+      message("Detected custom background input, domain scope is set to 'custom'.")
       domain_scope <- "custom"
     }
     t <- ifelse(length(custom_bg) == 1, custom_bg <- jsonlite::unbox(custom_bg), custom_bg <- custom_bg)
   }else{
     if (domain_scope %in% c("custom_annotated", "custom")){
-      message("Domain scope is set to custom, but no background genes detected from the input.")
-      return(NULL) 
+      stop("Domain scope is set to custom, but no background genes detected from the input. Please include a background set.")
     }
   }
-
+  
   if (as_short_link){
     # query should be a string in this case
-
+    
     if(!is.null(names(query))){
       query2 = paste0(unlist(lapply(names(query), function(x) paste(">", x, "\n", paste0(query[[x]], collapse = " ")))), collapse = "\n")
       multi_query = TRUE
     }else{
       query2 = paste0(query, collapse = " ")
     }
-
+    
     url = file.path("http://biit.cs.ut.ee", "gplink", "l")
     
     payload = {
@@ -223,7 +238,7 @@ gost <- function(query,
     ),
     auto_unbox = FALSE,
     null = "null")
-
+    
   } else {
     payload = list(
       organism = jsonlite::unbox(organism),
@@ -246,6 +261,7 @@ gost <- function(query,
     if (ensembl_version >= 108 & !startsWith(organism, "gp__")) {
       payload$highlight <- jsonlite::unbox(highlight)
     }
+    
     body <- jsonlite::toJSON((
       payload
     ),
@@ -253,59 +269,26 @@ gost <- function(query,
     null = "null")
   }
   
-  # Headers
-  headers <-
-    list("Accept" = "application/json",
-         "Content-Type" = "application/json",
-         "charset" = "UTF-8",
-         "Expect" = "")
-  oldw <- getOption("warn")
-  options(warn = -1)
-  h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
-  h2 = RCurl::getCurlHandle() # Get info about the request
-
-  # Request
-  r = RCurl::curlPerform(
-    url = url,
-    postfields = body,
-    httpheader = headers,
-    customrequest = 'POST',
-    verbose = FALSE,
-    ssl.verifypeer = FALSE,
-    writefunction = h1$update,
-    curl = h2,
-    .opts = gp_globals$rcurl_opts
-  )
-  options(warn = 0)
-  rescode = RCurl::getCurlInfo(h2)[["response.code"]]
-  txt <- h1$value()
-
-  if (rescode != 200) {
-    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
-    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
-    return(NULL) 
-  }
+  res <- gprofiler_request(url, body)
   
-  res <- jsonlite::fromJSON(txt)
-
   if (as_short_link){
     shortlink = paste0('https://biit.cs.ut.ee/gplink/l/', res$result)
     return(shortlink)
   }
-
+  
   df = res$result
   meta = res$meta
-
+  
   if (is.null(dim(df))) {
     message("No results to show\n", "Please make sure that the organism is correct or set significant = FALSE")
     return(NULL)
   }
-
+  
   # Re-order the data frame columns
   if (multi_query) {
     # add column that shows if significant
     df$significant <- lapply(df$p_values, function(x) x <= user_threshold)
-
+    
     col_names <- c(
       "term_id",
       "p_values",
@@ -319,7 +302,7 @@ gost <- function(query,
       "source_order",
       "parents"
     )
-
+    
   } else {
     col_names <- c(
       "query",
@@ -353,19 +336,19 @@ gost <- function(query,
       df$evidence_codes <- sapply(df$intersections, function(x)
         paste0(sapply(x[which(lengths(x) > 0)], paste0, collapse = " "), collapse = ","), USE.NAMES = FALSE)
     }
-  
+    
     # Order by query, source and p_value
     df <- df[with(df, order(query, source, p_value)), ]
-
+    
   }
   if (highlight & ensembl_version >= 108 & !startsWith(organism, "gp__")){
     col_names <- append(col_names, "highlighted")
   }
-
+  
   # Rename native to term_id
   colnames(df)[colnames(df) == "native"] <- "term_id"
   colnames(df)[colnames(df) == "name"] <- "term_name"
-
+  
   # Fix the row indexing to start from 1
   row.names(df) <- NULL
   df <- df[, col_names]
@@ -402,7 +385,7 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
 ){
   # gostres is the GOSt response list (contains results and metadata)
   # This function will plot only the sources that were asked from the query
-
+  
   if( is.null(pal) ){
     pal <- c("GO:MF" = "#dc3912",
              "GO:BP" = "#ff9900",
@@ -416,58 +399,58 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
              "CORUM" = "#66aa00",
              "HP" = "#990099")
   }
-
+  
   if (!("result" %in% names(gostres))) stop("Name 'result' not found from the input")
   if (!("meta" %in% names(gostres))) stop("Name 'meta' not found from the input")
-
+  
   source_order <- logpval <- term_id <- opacity <- NULL
   term_size <- term_name <- p_value <- term_size_scaled <- NULL
-
+  
   df <- gostres$result
   # Order of data sources comes metadata
   meta <- gostres$meta
-
+  
   # make sure all the essential column names are there
   essential_names <- c("source_order", "term_size", "term_name", "term_id", "source", "significant")
-
+  
   if (!(all(essential_names %in% colnames(df)))) stop(paste("The following columns are missing from the result:", paste0(setdiff(essential_names, colnames(df)), collapse = ", ")))
-
+  
   if (!any(grepl("p_value", colnames(df)))) stop("Column 'p_value(s)' is missing from the result")
-
+  
   # nr_of_terms for every source
   widthscale <- unlist(lapply(meta$query_metadata$sources, function(x) meta$result_metadata[[x]][["number_of_terms"]]))
   names(widthscale) <- meta$query_metadata$sources # all the sources that were queried
-
+  
   # Define the start positions for sources in the plot
-
+  
   # start position for every term
   space <- 1000 # space between different sources
   starts <- c()
   start <- 1
   starts[1] <- start
-
+  
   if(!length(widthscale) < 2) {
     for(idx in 2:length(widthscale)){
       starts[idx] <- starts[idx - 1] + space + widthscale[idx - 1]
     }
   }
-
+  
   names(starts) <- names(widthscale)
-
+  
   # Make sure that all the sources have colors
-
+  
   if (is.null(names(pal))){
     names(pal) = meta$query_metadata$sources[1:length(pal)]
   }
-
+  
   sourcediff = setdiff(meta$query_metadata$sources, names(pal))
   colors = grDevices::colors(distinct = TRUE)[grep('gr(a|e)y|white|snow|khaki|lightyellow', grDevices::colors(distinct = TRUE), invert = TRUE)]
-
+  
   if (length(sourcediff) > 0){
     use_cols = sample(colors, length(sourcediff), replace = FALSE)
     pal[sourcediff] <- use_cols
   }
-
+  
   # If multiquery
   if("p_values" %in% colnames(df)){
     p_values <- query <- significant <- NULL
@@ -476,7 +459,7 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
     df <- tidyr::unnest(data = df, cols = c(p_values, query, significant))
     df <- dplyr::rename(df, p_value = p_values)
   }
-
+  
   # Set sizescale of circles
   logScale <- function(input, input_start = 1, input_end = 50000, output_start = 2, output_end = 10){
     m = (output_end - output_start)/(log(input_end) - log(input_start))
@@ -484,7 +467,7 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
     output = m * log(input) + b
     return(output)
   }
-
+  
   # Scale x positions
   xScale <- function(input, input_start = 1, input_end = sum(widthscale) + (length(widthscale) - 1)*space, output_start = 2, output_end = 200){
     m = (output_end - output_start)/(input_end - input_start)
@@ -492,7 +475,7 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
     output = m * input + b
     return(output)
   }
-
+  
   # Add values to df needed for plotting
   # add -log10 pval
   df$logpval <- -log10(df$p_value)
@@ -501,7 +484,7 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
   # add x axis position
   df <- df %>% dplyr::group_by(source) %>% dplyr::mutate(order = xScale(source_order, input_start = 1, input_end = widthscale[source], output_start = starts[source], output_end = starts[source] + widthscale[source]))
   df$order <- xScale(df$order)
-
+  
   if (capped) {
     df$logpval[df$logpval > 16] <- 17
     ymin <- -1
@@ -514,14 +497,14 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
     ticklabels <- ggplot2::waiver()
     tickvals <- ggplot2::waiver()
   }
-
+  
   if (interactive){
     # Start plotting
     sd <- crosstalk::SharedData$new(df, key = ~term_id)
   } else {
     sd <- df
   }
-
+  
   p <- ggplot2::ggplot(data = sd, ggplot2::aes(x = order, y = logpval, text = paste(term_id, paste0('(', term_size,')'), '<br>', term_name, '<br>', formatC(p_value, format = "e", digits = 3)))) +
     ggplot2::geom_point(ggplot2::aes(color = source, size = term_size_scaled, alpha = opacity),
                         show.legend = FALSE) +
@@ -550,25 +533,25 @@ gostplot <- function(gostres, capped = TRUE, interactive = TRUE, pal = c("GO:MF"
     ggplot2::scale_x_continuous(expand = c(0, 0), limits = c(0, 210),
                                 breaks = (xScale(starts) + xScale(starts + widthscale))/2,
                                 labels = names(widthscale))
-
+  
   for (s in names(widthscale)){
     xstart = xScale(starts[s])
     xend = xScale(starts[s] + widthscale[s])
     p <- p + ggplot2::annotate("segment", x = xstart, xend = xend, y = -1, yend = -1,
                                size = 3, colour = pal[s])
   }
-
+  
   if (capped){
     p <- p + ggplot2::annotate(geom = "text", x = 180,
                                y = 16.2, label = "values above this threshold are capped", size = 2, color = "grey") +
       ggplot2::geom_hline(yintercept = 16, linetype = "dashed", size = 0.2, color = "grey")
   }
-
+  
   if (interactive){
     p <- p %>% plotly::ggplotly(tooltip = "text")
     p <- p %>% plotly::highlight(on = "plotly_click", off = "plotly_doubleclick", dynamic = FALSE, persistent = FALSE)
   }
-
+  
   return(p)
 }
 
@@ -613,9 +596,9 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width =
     warning("Highlighting terms in a Manhattan plot is available for a ggplot object only.\nPlease set 'interactive = F' in the gostplot() function and try again.")
     return(NULL)
   }
-
+  
   term_id <- logpval <- term_size_scaled <- id <- query <- p_value <- NULL
-
+  
   # add highlights
   if (!is.null(highlight_terms)) {
     if (is.data.frame(highlight_terms)){
@@ -629,43 +612,43 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width =
     }
     df <- p$data
     subdf <- base::subset(df, term_id %in% highlight_terms)
-
+    
     if (nrow(subdf) == 0){
       message("None of the term IDs in the 'highlight_terms' was found from the results.")
       return(p)
     }
-
+    
     highlight_terms <- unique(highlight_terms)
     subdf$id <- match(subdf$term_id, highlight_terms)
-
+    
     p <- p + ggplot2::geom_point(data = subdf, ggplot2::aes(x = order, y = logpval, size = term_size_scaled), pch=21, colour = "black")
     p <- p + ggplot2::geom_text(data = subdf, size = 4, colour = "white", ggplot2::aes(label = as.character(id), family = "mono", fontface = "bold"), hjust = -1.2, vjust = -0.05) +
       ggplot2::geom_text(data = subdf, size = 4, colour = "black", fontface = "bold", ggplot2::aes(label = as.character(id)), hjust = -1.2, vjust = -0.05)
-
+    
     # add table
     pseudo_gostres <- list("result" = data.frame(subdf), "meta" = list("query_metadata"= list("queries" = sapply(unique(subdf$query), function(x) NULL))))
     #tb <- publish_gosttable(data.frame(subdf), highlight_terms = highlight_terms, use_colors = TRUE, show_columns = c("source", "term_name", "term_size"), filename = NULL, ggplot = FALSE)
     tb <- publish_gosttable(pseudo_gostres, highlight_terms = highlight_terms, use_colors = TRUE, show_columns = c("source", "term_name", "term_size"), filename = NULL, ggplot = FALSE)
-
+    
     h <- grid::unit.c(grid::unit(1, "null"), sum(tb$heights) + grid::unit(3, "mm"))
     w <- grid::unit.c(grid::unit(1, "null"))
-
+    
     tg <- gridExtra::grid.arrange(p, tb, ncol = 1, heights = h, widths = w, newpage = TRUE)
-
+    
     # convert grob to ggplot object
     p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
-   }
-
+  }
+  
   if (is.null(filename)){
     return(p)
   }
   else{
     imgtype <- strsplit(basename(filename), split="\\.")[[1]][-1]
-
+    
     if (length(imgtype) == 0) {
       filename = paste0(filename, ".pdf")
     }
-
+    
     if (tolower(imgtype) %in% c("png", "pdf", "jpeg", "tiff", "bmp")){
       if (is.na(width)){
         width = max(grDevices::dev.size()[1], 8)
@@ -704,7 +687,7 @@ publish_gostplot <- function(p, highlight_terms = NULL, filename = NULL, width =
 publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE, show_columns = c("source", "term_name", "term_size", "intersection_size"), filename = NULL, ggplot = TRUE){
   # gostres is the GOSt response list (contains results and metadata) or a data frame
   term_id <- p_values <- query <- p_value <- NULL
-
+  
   if (is.list(gostres) & !is.data.frame(gostres)){
     if (!("result" %in% names(gostres))) stop("Name 'result' not found from the input")
     df <- gostres$result
@@ -713,17 +696,17 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
   } else {
     stop("The input 'gostres' should be a data frame or a list from the gost() function.")
   }
-
+  
   # make sure all the essential column names are there
   if (!"term_id" %in% colnames(df)) stop("The required column 'term_id' is missing from the input")
   if (!any(grepl("p_value", colnames(df)))) stop("Column 'p_value(s)' is missing from the input")
-
+  
   # selected terms
   if (is.null(highlight_terms)) {
     # show full table if no terms given
     highlight_terms = df
   }
-
+  
   if (is.data.frame(highlight_terms)){
     message("The input 'highlight_terms' is a data.frame. The column 'term_id' will be used.")
     if ("term_id" %in% colnames(highlight_terms)){
@@ -733,30 +716,30 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
       stop("No column named 'term_id'.")
     }
   }
-
+  
   subdf <- base::subset(df, term_id %in% highlight_terms)
-
+  
   if (nrow(subdf) == 0){
     stop("None of the term IDs in the 'highlight_terms' were found from the results.")
   }
-
+  
   highlight_terms <- unique(highlight_terms)
   subdf$id <- match(subdf$term_id, highlight_terms)
-
+  
   # order by id column
   subdf = subdf[order(subdf$id),]
-
+  
   # default column names to show
   show_columns <- unique(append(show_columns, c("id", "term_id", "p_value")))
   gp_colnames <- c("id", "source", "term_id", "term_name", "term_size", "query_size", "intersection_size", "p_value", "intersection_sizes", "query_sizes")
-
+  
   colnames <- gp_colnames[which(gp_colnames %in% show_columns)]
-
+  
   # include non gprofiler columns
   if (length(setdiff(show_columns, gp_colnames)) > 0){
     colnames <- append(colnames, setdiff(show_columns, gp_colnames))
   }
-
+  
   # If multiquery
   if ("p_values" %in% colnames(subdf)){
     if ("meta" %in% names(gostres)){
@@ -779,7 +762,7 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
     subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 1)
     showdf <- subdf[,stats::na.omit(match(c(colnames, "query"), names(subdf)))]
     showdf <- tidyr::pivot_wider(showdf, names_from = query, values_from = c(p_value, spread_col[spread_col!="p_values"]), names_prefix = ifelse(length(spread_col) == 1,"p_value ", ""))
-
+    
   } else {
     if ("query" %in% names(subdf) & length(unique(subdf$query)) > 1){
       subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 1)
@@ -796,11 +779,11 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
         } else{
           input_order <- unlist(lapply(spread_col, function(x) paste(x, input_order, sep = "_")))
         }
-
+        
         showdf <- showdf[c(names(showdf)[stats::na.omit(match(colnames, names(showdf)))], input_order) ]
-
+        
       }
-
+      
     } else {
       subdf$p_value <- formatC(subdf$p_value, format = "e", digits = 1)
       showdf <- subdf[,stats::na.omit(match(colnames, names(subdf)))]
@@ -808,7 +791,7 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
   }
   # find the columns to color
   idx <- which(grepl(pattern = "p_value", x = names(showdf)))
-
+  
   # Prepare table
   if (use_colors){
     order_of_cl = names(showdf)[idx]
@@ -835,14 +818,14 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
     showdf[,startsWith(names(showdf), "1")] = ""
     # rename the column
     names(showdf)[startsWith(names(showdf), "1")] = ""
-
+    
   } else {
     colours <- matrix("white", nrow(showdf), ncol(showdf))
   }
-
+  
   fontcolours <- matrix("black", nrow(showdf), ncol(showdf))
   fontfaces <- matrix("plain", nrow(showdf), ncol(showdf))
-
+  
   th <- gridExtra::ttheme_default(base_size = 10,
                                   padding = grid::unit(c(4, 4), "mm"),
                                   core=list(
@@ -853,17 +836,17 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
                                   colhead=list(bg_params = list(fill = "gray99", lwd = 0.5, col = "black"),
                                                fg_params=list(col="gray39", fontface="bold")),
                                   rowhead=list(fg_params=list(col="black", fontface="bold")))
-
+  
   tb <- gridExtra::tableGrob(showdf, theme = th, rows = NULL)
   h <- grid::unit.c(sum(tb$heights))
   w <- grid::unit.c(sum(tb$widths))
   tg <- gridExtra::arrangeGrob(tb, ncol = 1, widths = w, heights = h, bottom = grid::textGrob("g:Profiler (biit.cs.ut.ee/gprofiler)", x = 0.95, hjust = 1, gp = grid::gpar(fontsize=10, font=8, col = "cornflowerblue")))
-
+  
   if(ggplot){
     p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
   }
   p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
-
+  
   if (is.null(filename)){
     if (ggplot){
       p <- ggplot2::ggplot() + ggplot2::annotation_custom(tg) + ggplot2::geom_blank() + ggplot2::theme_void()
@@ -871,14 +854,14 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
     } else {
       return(tg)
     }
-
+    
   } else{
     imgtype <- strsplit(basename(filename), split="\\.")[[1]][-1]
-
+    
     if (length(imgtype) == 0) {
       filename = paste0(filename, ".pdf")
     }
-
+    
     if (tolower(imgtype) %in% c("png", "pdf", "jpeg", "tiff", "bmp")){
       width = grid::convertWidth(sum(tg$widths), "in", TRUE) + 0.2
       height = grid::convertHeight(sum(tg$heights), "in", TRUE) + 0.2
@@ -916,7 +899,7 @@ publish_gosttable <- function(gostres, highlight_terms = NULL, use_colors = TRUE
 upload_GMT_file <- function(gmtfile){
   # check if file exists
   if (!file.exists(gmtfile)){
-    stop(paste0("Can't find the input file ", gmtfile, "\nPlease check the filename and absolute path and try again."))
+    stop(paste0("Can't find the input file ", gmtfile, ".", "\nPlease check the filename and absolute path and try again."))
   }
   if (endsWith(gmtfile, ".gmt")){
     # GMT file
@@ -929,9 +912,9 @@ upload_GMT_file <- function(gmtfile){
       duplicates = paste(term_ids[duplicated(term_ids)], collapse = ", ")
       stop("Your GMT file includes duplicated identifiers: ", duplicates, ".\nPlease remove duplicated identifiers and try to upload again.")
     }
-
+    
     gmtdata <- paste(gmtlist, collapse = "\n")
-
+    
     body <- jsonlite::toJSON((
       list(
         gmt = gmtdata,
@@ -940,70 +923,31 @@ upload_GMT_file <- function(gmtfile){
     ),
     auto_unbox = TRUE,
     null = "null")
-
-    # Headers
-    headers <-
-      list("Accept" = "application/json",
-           "Content-Type" = "application/json",
-           "charset" = "UTF-8",
-           "Expect" = "")
-    oldw <- getOption("warn")
-    options(warn = -1)
-    h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
-    h2 = RCurl::getCurlHandle() # Get info about the request
-
-    # Request
-    r = RCurl::curlPerform(
-      url = gmturl,
-      postfields = body,
-      httpheader = headers,
-      customrequest = 'POST',
-      verbose = FALSE,
-      ssl.verifypeer = FALSE,
-      writefunction = h1$update,
-      curl = h2,
-      .opts = gp_globals$rcurl_opts
-    )
-    options(warn = 0)
-    rescode = RCurl::getCurlInfo(h2)[["response.code"]]
-
-    if (rescode != 200) {
-      message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
-      message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
-      return(NULL) 
-    }
-
-    txt <- h1$value()
-    res <- jsonlite::fromJSON(txt)
+    
+    tryCatch({
+      res <- gprofiler_request(gmturl, body)},
+      error = function(e) {
+        stop("Something went wrong. You can validate your GMT file using our web helper: https://biit.cs.ut.ee/gmt-helper/ (tab Validate GMT file).")
+      })
   }
   else if (endsWith(gmtfile, ".zip")){
     # zipped GMT files
-
+    
     gmturl = paste0(file.path(gp_globals$base_url, "api", "gost", "custom", "zip"), "/")
-    options(warn = -1)
-    h2 = RCurl::getCurlHandle() # Get info about the request
-    r = RCurl::postForm(
-      uri = gmturl,
-      zipfile = RCurl::fileUpload(filename = gmtfile, contentType="multipart/form-data"),
-      curl = h2
-    )
-    options(warn = 0)
-    rescode = RCurl::getCurlInfo(h2)[["response.code"]]
-
-    if (rescode != 200) {
-      message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
-      message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
-      return(NULL) 
-    }
-    res <- jsonlite::fromJSON(r)
+    
+    tryCatch({
+      res <- gprofiler_request(gmturl, body)},
+      error = function(e) {
+        stop("Something went wrong. You can validate your GMT file using our web helper: https://biit.cs.ut.ee/gmt-helper/ (tab Validate GMT file).")
+      })
   }
   else {
     stop("Custom GMT file should have extension .gmt or .zip")
   }
   custom_id <- res$organism
-  message(paste("Your custom annotations ID is", custom_id), "\nYou can use this ID as an 'organism' name in all the related enrichment tests against this custom source.")
+  message(paste0("Your custom annotations ID is ", custom_id, ".\nYou can use this ID as an 'organism' name in all the related enrichment tests against this custom source."))
   message(paste0("Just use: gost(my_genes, organism = '", custom_id, "')"))
-
+  
   return(custom_id)
 }
 
@@ -1025,39 +969,8 @@ random_query <- function(organism = "hsapiens"){
     list(organism = jsonlite::unbox(organism))),
     auto_unbox = FALSE,
     null = "null")
-  # Headers
-
-  headers <- list("Accept" = "application/json",
-                  "Content-Type" = "application/json",
-                  "charset" = "UTF-8",
-                  "Expect" = "")
-oldw <- getOption("warn")
-  options(warn = -1)
-  h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
-  h2 = RCurl::getCurlHandle() # Get info about the request
-
-  # Request
-  r = RCurl::curlPerform(
-    url = url,
-    postfields = body,
-    httpheader = headers,
-    customrequest = 'POST',
-    verbose = FALSE,
-    ssl.verifypeer = FALSE,
-    writefunction = h1$update,
-    curl = h2,
-    .opts = gp_globals$rcurl_opts
-  )
-  options(warn = 0)
-  rescode = RCurl::getCurlInfo(h2)[["response.code"]]
-  txt <- h1$value()
-
-  if (rescode != 200) {
-    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
-    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
-    return(NULL) 
-  }
-  res <- jsonlite::fromJSON(txt)
+  
+  res <- gprofiler_request(url, body)
   return(res)
 }
 
@@ -1087,25 +1000,25 @@ oldw <- getOption("warn")
 #' gconvert(c("POU5F1", "SOX2", "NANOG"), organism = "hsapiens", target="AFFY_HG_U133_PLUS_2")
 #' @export
 gconvert = function(
-  query,
-  organism = "hsapiens",
-  target = "ENSG",
-  numeric_ns = "",
-  mthreshold = Inf,
-  filter_na = TRUE
+    query,
+    organism = "hsapiens",
+    target = "ENSG",
+    numeric_ns = "",
+    mthreshold = Inf,
+    filter_na = TRUE
 ) {
   url = file.path(gp_globals$base_url, "api", "convert", "convert")
-
+  
   if (is.null(query)) {
     stop("Missing query")
   }
-
+  
   if (is.list(query)) {
     stop("Parameter 'query' must be a vector")
   }
   # handle potential numeric values in the input
   query = as.character(query)
-
+  
   body <- jsonlite::toJSON((
     list(
       organism = organism,
@@ -1117,55 +1030,19 @@ gconvert = function(
   ),
   auto_unbox = TRUE,
   null = "null")
-
-  # Headers
-
-  headers <-
-    list("Accept" = "application/json",
-         "Content-Type" = "application/json",
-         "charset" = "UTF-8",
-         "Expect" = "")
-
-
-  oldw <- getOption("warn")
-  options(warn = -1)
-  h1 = RCurl::basicTextGatherer()
-  h2 = RCurl::getCurlHandle() # Get info about the request
-
-  # Request
-
-  r = RCurl::curlPerform(
-    url = url,
-    postfields = body,
-    httpheader = headers,
-    customrequest = 'POST',
-    verbose = FALSE,
-    ssl.verifypeer = FALSE,
-    writefunction = h1$update,
-    curl = h2,
-    .opts = gp_globals$rcurl_opts
-  )
-  options(warn = 0)
-  rescode = RCurl::getCurlInfo(h2)[["response.code"]]
-  txt <- h1$value()
-
-  if (rescode != 200) {
-    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
-    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
-    return(NULL) 
-  }
-
-  res <- jsonlite::fromJSON(txt)
+  
+  res <- gprofiler_request(url, body)
+  
   df = res$result
-
+  
   if (is.null(dim(df))) {
-    message("No results to show\n", "Please make sure that the organism or namespace is correct")
+    message("No results to show\n", "Please make sure that the organism or namespace is correct.")
     return(NULL)
   }
-
+  
   col_names <- c("n_incoming", "incoming", "n_converted", "converted", "name", "description", "namespaces")
   df = df[,col_names]
-
+  
   # filter empty results
   if (filter_na){
     df <- df[!df$converted %in% c("nan", "None"),]
@@ -1175,18 +1052,18 @@ gconvert = function(
     df[df == "None"] <- NA_character_
   }
   if (nrow(df) == 0){
-    message("No results to show\n", "Please make sure that the organism or namespace is correct")
+    message("No results to show\n", "Please make sure that the organism or namespace is correct.")
     return(NULL)
   }
   # filter max number of results per input
   if (mthreshold < Inf){
     df <- df %>% dplyr::group_by(incoming) %>% dplyr::top_n(-mthreshold, n_converted) %>% data.frame()
   }
-
+  
   # rename columns
   colnames(df) <- c("input_number", "input", "target_number", "target", "name", "description", "namespace")
   df$target_number <- paste(df$input_number, df$target_number, sep=".")
-
+  
   #df = plyr::dlply(df, "input", function(x) {
   #  if (filter_na)
   #    x = x[x$target != "None",]
@@ -1195,10 +1072,10 @@ gconvert = function(
   #  if (nrow(x) > mthreshold)
   #    x = lapply(x, function(y) { as.character(y)[1:mthreshold] })
   #  return(x)
- # })
-
+  # })
+  
   #df <- plyr::ldply(df, function(x) data.frame(x, stringsAsFactors = F))
-
+  
   df <- df[order(df$input_number, df$target_number),]
   row.names(df) <- NULL
   return(df)
@@ -1231,26 +1108,26 @@ gconvert = function(
 #' @export
 
 gorth <- function(
-  query,
-  source_organism = "hsapiens",
-  target_organism = "mmusculus",
-  numeric_ns = "",
-  mthreshold = Inf,
-  filter_na = TRUE
+    query,
+    source_organism = "hsapiens",
+    target_organism = "mmusculus",
+    numeric_ns = "",
+    mthreshold = Inf,
+    filter_na = TRUE
 ){
   url = file.path(gp_globals$base_url, "api", "orth", "orth")
-
+  
   if (is.null(query)) {
     stop("Missing query")
   }
-
+  
   if (is.list(query)) {
     stop("Parameter 'query' should be a vector")
   }
-
+  
   # handle potential numeric values in the input
   query = as.character(query)
-
+  
   body <- jsonlite::toJSON((
     list(
       organism = source_organism,
@@ -1262,54 +1139,18 @@ gorth <- function(
   ),
   auto_unbox = TRUE,
   null = "null")
-
-  # Headers
-
-  headers <-
-    list("Accept" = "application/json",
-         "Content-Type" = "application/json",
-         "charset" = "UTF-8",
-         "Expect" = "")
-
-
-  oldw <- getOption("warn")
-  options(warn = -1)
-  h1 = RCurl::basicTextGatherer()
-  h2 = RCurl::getCurlHandle() # Get info about the request
-
-  # Request
-
-  r = RCurl::curlPerform(
-    url = url,
-    postfields = body,
-    httpheader = headers,
-    customrequest = 'POST',
-    verbose = FALSE,
-    ssl.verifypeer = FALSE,
-    writefunction = h1$update,
-    curl = h2,
-    .opts = gp_globals$rcurl_opts
-  )
-  options(warn = 0)
-  rescode = RCurl::getCurlInfo(h2)[["response.code"]]
-  txt <- h1$value()
-
-  if (rescode != 200) {
-    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
-    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
-    return(NULL) 
-  }
-
-  res <- jsonlite::fromJSON(txt)
+  
+  res <- gprofiler_request(url, body)
+  
   df = res$result
-
+  
   if (is.null(dim(df))) {
     message("No results to show\n", "Please make sure that the organisms or the namespace are correct")
     return(NULL)
   }
-
+  
   df$ensg_number = paste(df$n_incoming, df$n_converted, df$n_result, sep = ".")
-
+  
   # filter empty results
   if (filter_na){
     df <- df[df$name != "N/A",]
@@ -1322,13 +1163,13 @@ gorth <- function(
   if (mthreshold < Inf){
     df <- df %>% dplyr::group_by(incoming) %>% dplyr::top_n(-mthreshold, n_result) %>% data.frame()
   }
-
+  
   col_names = c("n_incoming", "incoming", "converted", "ensg_number", "name", "ortholog_ensg", "description")
   df <- df[,col_names]
-
+  
   # rename columns
   colnames(df) <- c("input_number", "input", "input_ensg", "ensg_number", "ortholog_name", "ortholog_ensg", "description")
-
+  
   # df = plyr::dlply(df, "input", function(x) {
   #   if (filter_na)
   #     x = x[x$ortholog_name != "None",]
@@ -1340,7 +1181,7 @@ gorth <- function(
   # })
   #
   # df <- plyr::ldply(df, function(x) data.frame(x, stringsAsFactors = F))
-
+  
   df <- df[order(df$input_number, df$ensg_number),]
   row.names(df) <- NULL
   return(df)
@@ -1366,18 +1207,18 @@ gorth <- function(
 #' @export
 
 gsnpense <- function(
-  query, filter_na = TRUE
+    query, filter_na = TRUE
 ){
   url = file.path(gp_globals$base_url, "api", "snpense", "snpense")
-
+  
   if (is.null(query)) {
     stop("Missing query")
   }
-
+  
   if ( !any(startsWith(tolower(query), "rs")) ){
     stop("Query must contain SNP ids with 'rs' prefix.")
   }
-
+  
   body <- jsonlite::toJSON((
     list(
       query = query,
@@ -1386,55 +1227,20 @@ gsnpense <- function(
   ),
   auto_unbox = TRUE,
   null = "null")
-
-  # Headers
-  headers <-
-    list("Accept" = "application/json",
-         "Content-Type" = "application/json",
-         "charset" = "UTF-8",
-         "Expect" = "")
-
-
-  oldw <- getOption("warn")
-  options(warn = -1)
-  h1 = RCurl::basicTextGatherer()
-  h2 = RCurl::getCurlHandle() # Get info about the request
-
-  # Request
-
-  r = RCurl::curlPerform(
-    url = url,
-    postfields = body,
-    httpheader = headers,
-    customrequest = 'POST',
-    verbose = FALSE,
-    ssl.verifypeer = FALSE,
-    writefunction = h1$update,
-    curl = h2,
-    .opts = gp_globals$rcurl_opts
-  )
-  options(warn = 0)
-  rescode = RCurl::getCurlInfo(h2)[["response.code"]]
-  txt <- h1$value()
-
-  if (rescode != 200) {
-    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
-    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
-    return(NULL) 
-  }
-
-  res <- jsonlite::fromJSON(txt)
+  
+  res <- gprofiler_request(url, body)
+  
   df = res$result
-
+  
   if (is.null(dim(df))) {
     message("No results to show\n", "Please make sure that the input is of correct format")
     return(NULL)
   }
-
+  
   # Add NA where relevant
-
+  
   df[df$start == -1, -1] = NA
-
+  
   if (filter_na) {
     df <- df[!is.na(df$chromosome),]
   }
@@ -1530,10 +1336,10 @@ get_base_url = function() {
 set_base_url = function(url) {
   url = as.character(url)
   schema = substr(url, 1, 4)
-
+  
   if (schema != "http")
     stop("The URL must be absolute and use the HTTP(S) schema")
-
+  
   assign("base_url", url, envir = gp_globals)
 }
 
@@ -1549,7 +1355,7 @@ set_base_url = function(url) {
 #' @export
 get_version_info <- function(organism = "hsapiens"){
   url = file.path(gprofiler2::get_base_url(), "api", "util", "data_versions")
-
+  
   body <- jsonlite::toJSON((
     list(
       organism = jsonlite::unbox(organism)
@@ -1557,22 +1363,55 @@ get_version_info <- function(organism = "hsapiens"){
   ),
   auto_unbox = FALSE,
   null = "null")
+  
+  version_info <- gprofiler_request(url, body)
+  
+  return(version_info)
+}
 
-  # Headers
-  headers <-
-    list("Accept" = "application/json",
-         "Content-Type" = "application/json",
-         "charset" = "UTF-8",
-         "Expect" = "")
-  oldw <- getOption("warn")
+#' Perform a g:Profiler API request
+#'
+#' This function sends an HTTP POST request to the g:Profiler API with the provided payload
+#' and handles the response accordingly. It parses the JSON response and returns the result.
+#'
+#' @param url The URL to which the request is sent.
+#' @param payload The payload to be sent in the request body. It should be a list or JSON string.
+#'
+#' @return A list containing the parsed JSON response from the g:Profiler API.
+#'
+#' @details
+#' This function sends an HTTP POST request to the specified URL with the provided payload,
+#' expecting a JSON response. It handles potential errors, such as non-200 response codes,
+#' and parses the JSON response accordingly. If the response code is not 200, an error is raised
+#' along with a descriptive message. If the response contains a JSON object with a "message" field,
+#' this message is included in the error message.
+#'
+#' @author Liis Kolberg <liis.kolberg@@ut.ee>
+#' @examples
+#' # Example usage:
+#' url <- "https://biit.cs.ut.ee/gprofiler/api/gost/profile"
+#' payload <- list(
+#'   organism = jsonlite::unbox("hsapiens"),
+#'   query = c("ENSG00000139618", "ENSG00000141510"),
+#'   sources = c("GO:BP", "KEGG"),
+#'   user_threshold = jsonlite::unbox(0.05),
+#'   all_results = jsonlite::unbox(TRUE)
+#' )
+#' \dontrun{result <- gprofiler_request(url, payload)}
+#'
+#' @export
+gprofiler_request <- function(url, payload){
+  headers <- list("Accept" = "application/json",
+                  "Content-Type" = "application/json",
+                  "charset" = "UTF-8",
+                  "Expect" = "")
   options(warn = -1)
-  h1 = RCurl::basicTextGatherer(.mapUnicode = FALSE)
-  h2 = RCurl::getCurlHandle() # Get info about the request
-
-  # Request
-  r = RCurl::curlPerform(
+  h1 <- RCurl::basicTextGatherer(.mapUnicode = FALSE)
+  h2 <- RCurl::getCurlHandle() # Get info about the request
+  
+  r <- RCurl::curlPerform(
     url = url,
-    postfields = body,
+    postfields = payload,
     httpheader = headers,
     customrequest = 'POST',
     verbose = FALSE,
@@ -1581,17 +1420,30 @@ get_version_info <- function(organism = "hsapiens"){
     curl = h2,
     .opts = gp_globals$rcurl_opts
   )
+  
   options(warn = 0)
-  rescode = RCurl::getCurlInfo(h2)[["response.code"]]
+  rescode <- RCurl::getCurlInfo(h2)[["response.code"]]
   txt <- h1$value()
-
+  
   if (rescode != 200) {
-    message("The g:Profiler web resource you're trying to connect to is not available at the moment or has changed.")
-    message("Please check your internet connection or try again later, or contact us on biit.support@ut.ee")
-    return(NULL) 
+    error_message <- error_message <- paste0("There's an issue with your request to g:Profiler.", "\nError code: ", rescode, ".")
+    
+    # Try parsing JSON
+    tryCatch({
+      json <- jsonlite::fromJSON(txt)
+      if ("message" %in% names(json)) {
+        error_message <- paste0(error_message, " API message: ", json$message)
+      } else {
+        error_message <- paste0(error_message, " API message: ", txt)
+      }
+    }, error = function(e) {
+      # If parsing fails, include the entire text
+      error_message <- paste0(error_message, "\nAPI message: ", txt)
+    })
+    error_message <- paste0(error_message, "\nPlease double check your input. If this doesn't help, then check your internet connection or contact us with a reproducible example on biit.support@ut.ee")
+    stop(error_message)
   }
-
-  version_info <- jsonlite::fromJSON(txt)
-
-  return(version_info)
+  
+  res <- jsonlite::fromJSON(txt)
+  return(res)
 }
